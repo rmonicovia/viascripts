@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+from subprocess import run, PIPE
+
+
+def parse_command_line():
+    '''
+    Reference: https://docs.python.org/3/library/argparse.html
+    '''
+    from argparse import ArgumentParser, FileType
+
+    parser = ArgumentParser(description='Openshift login script')
+
+    parser.add_argument('-v',
+                        '--version',
+                        choices=[3, 4],
+                        required=True,
+                        type=int,
+                        help='Version of open shift to log in')
+
+    return parser.parse_args()
+
+
+def error(message, exit_code=1):
+    global logger
+
+    print(message)
+
+    exit(exit_code)
+
+
+def login_openshift(server):
+    run(
+        f'oc login --server={server} --username=4960000723 --password=MeR!/GMV --insecure-skip-tls-verify=true'.split(' '),
+        stdin=PIPE,
+        stdout=PIPE)
+
+
+def main():
+    import shutil
+    if not shutil.which('oc'):
+        error('"oc" command not found, exiting...')
+
+    global args
+
+    args = parse_command_line()
+
+    oc_server = {
+        3: 'https://vv-shift-eqx.dc.nova:443',
+        4: 'https://api.ops-eqx.viavarejo.com.br:6443',
+    }
+
+    login_openshift(oc_server[args.version])
+
+    return 0
+
+
+if __name__ == '__main__':
+    returncode = main() or 0
+
+    exit(returncode)

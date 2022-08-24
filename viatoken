@@ -34,6 +34,8 @@ ambientes:
 A entrada "perfis" também é obrigatória, deve conter perfis válidos.
 Os nomes dos perfis podem ser arbitrários, porém,dentro de um perfil é obrigatório existir as entradas 'padrao' e 'ambientes'. As demais são todas opcionais (mas sem elas o request de geração de token não vai funcionar).
 A entrada "ambientes" é obrigatória. Porém pode estar vazia (nesse caso deve passar o parâmetro --ambiente.
+
+O arquivo de configuração deve ficar localizado em $HOME/.config/viatoken/config.yaml
 '''
 
 
@@ -83,7 +85,7 @@ def parse_command_line():
 
 
 def getConfigFile():
-    return '{HOME}/.config/votoken/config.yml'.format(**os.environ)
+    return '{HOME}/.config/viatoken/config.yml'.format(**os.environ)
 
 
 def getPerfilConfig(nome_perfil, configs):
@@ -158,14 +160,13 @@ def copy_to_clipboard(contents):
     from tempfile import TemporaryFile
 
     with TemporaryFile() as temp_file:
-        temp_file.write(token.encode())
+        temp_file.write(contents.encode())
 
         temp_file.seek(0)
 
         import subprocess
 
-        # TODO Checar se xclip existe no PATH, usar shutil
-        process = subprocess.run('xclip', stdin=temp_file)
+        process = subprocess.run('xclip -selection clipboard'.split(' '), stdin=temp_file)
 
 
     if process.returncode != 0:

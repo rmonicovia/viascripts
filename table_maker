@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+
+
+def file_name(filename):
+    from argparse import ArgumentError
+
+    if not os.path.isfile(filename):
+        raise ArgumentError(f'"{filename}" não é um arquivo válido')
+
+    return filename
+
+
+def parse_command_line():
+    '''
+    Reference: https://docs.python.org/3/library/argparse.html
+    '''
+    from argparse import ArgumentParser, FileType
+
+    parser = ArgumentParser(description='Monta uma tabelas a partir de arquivos no formato "chave=valor"')
+
+    parser.add_argument('output',
+                        help='Arquivo excel de saída')
+
+    parser.add_argument('input',
+                        nargs='+',
+                        type=file_name,
+                        help='Arquivos de propriedades')
+
+    return parser.parse_args()
+
+
+def error(message, exit_code=1):
+    global logger
+
+    logger.critical(message)
+
+    exit(exit_code)
+
+
+def load_data(input_files):
+    '''
+    data[variable][filename]
+
+    fnames is all filenames
+    '''
+    fnames = set()
+    data = dict()
+
+
+    for file_name in input_files:
+        fnames.add(file_name)
+        with open(file_name) as file:
+            for i, line in enumerate([ l.strip() for l in file.readlines() ]):
+                if line == '':
+                    continue
+
+                tokens = line.split('=')
+
+                if len(tokens) != 2:
+                    error(f'Line {i} invalid at {file.name}', 1)
+
+                variable, value = tokens
+
+                if variable not in data:
+                    data[variable] = dict()
+
+                data[variable].update({ file.name: value })
+
+    return fnames, data
+
+
+def sheet_columns(initial = 'A'):
+    column = chr(ord(initial) - 1)
+
+    while True:
+        column = chr(ord(column) + 1)
+
+        yield column
+
+        if column == 'Z':
+            break
+
+
+def main():
+    global args
+
+    args = parse_command_line()
+
+    fnames, data = load_data(args.input)
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+
+    ws = wb.active
+
+    ws['A1'] = 'Variável'
+
+    columns = dict()
+
+    for column, fname in zip(sheet_columns('B'), fnames):
+        cell = f'{column}1'
+
+        ws[cell] = fname
+
+        columns[column] = fname
+
+    for line, variable in enumerate(data.keys(), 2):
+        ws[f'A{line}'] = variable
+
+        for cell, fname in [ (f'{col}{line}', val) for col, val in columns.items() ]:
+            if fname in data[variable]:
+                ws[cell] = data[variable][fname]
+
+    wb.save(args.output)
+
+    return 0
+
+
+if __name__ == '__main__':
+    returncode = main() or 0
+
+    exit(returncode)

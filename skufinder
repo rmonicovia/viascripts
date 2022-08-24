@@ -92,7 +92,6 @@ def main():
 
     analysis = Analysis(args.skus)
 
-    # breakpoint()
     try:
         import pymongo
     except ImportError:
@@ -100,13 +99,22 @@ def main():
 
     import urllib
 
+    [ analysis.on_mongo(sku) for sku in check_mongo(args.skus) ]
+
+    for sku in analysis.skus:
+        print(sku + ':')
+        print(f'    Mongo: { "yes" if analysis.on_mongo(sku) else "no" }')
+
+    return 0
+
+def check_mongo(skus):
     username = urllib.parse.quote_plus('svc_viamais')
     password = urllib.parse.quote_plus('Ygy89xd*<jpVc53TXc845Ka')
 
     # connection_string = f'mongodb://{username}:{password}@10.128.18.110:27017,10.128.18.111:27017,10.128.18.112:27017,10.128.18.113:27017,10.128.18.40:27017'
 
     # connection_string = f'mongodb://{username}:{password}@mdbp1-via-1.dc.nova:27017,mdbp2-via-1.dc.nova:27017,mdbp3-via-1.dc.nova:27017,mdbp4-via-1.dc.nova:27017,mdbp5-via-1.dc.nova:27017'
-    connection_string = f'mongodb://{username}:{password}@mdbp1-via-1.dc.nova:27017/?authSource=admin&authMechanism=SCRAM-SHA-1'
+    connection_string = f'mongodb://{username}:{password}@mdbp1-via-1.dc.nova:27017,mdbp2-via-1.dc.nova:27017,mdbp3-via-1.dc.nova:27017,mdbp4-via-1.dc.nova:27017,mdbp5-via-1.dc.nova:27017/?authSource=admin&authMechanism=SCRAM-SHA-1'
 
     client = pymongo.MongoClient(connection_string)
     
@@ -117,22 +125,18 @@ def main():
 
         produtos = collection.find({ "_id.sku": { "$in": args.skus } })
 
+        skus = []
+
         try:
             for produto in produtos:
-                analysis.on_mongo(produto.sku, True)
+                skus.append(produto.sku)
         finally:
             produtos.close()
 
     finally:
         client.close()
 
-
-    for sku in analysis.skus:
-        print(sku + ':')
-        print(f'    Mongo: { "yes" if analysis.on_mongo(sku) else "no" }')
-
-    return 0
-
+    return skus
 
 if __name__ == '__main__':
     returncode = main() or 0

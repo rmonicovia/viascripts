@@ -5,6 +5,36 @@ from sys import exit
 from argparse import ArgumentParser, ArgumentError
 
 
+enable_log = False
+
+configs = {
+    'mongo': {
+        'user': 'svc_viamais',
+        'password': 'Ygy89xd*<jpVc53TXc845Ka',
+        'host': 'mdbp-via-1.dc.nova:27017,mdbp-via-2.dc.nova:27017,mdbp-via-3.dc.nova:27017,mdbp-via-4.dc.nova:27017,mdbp-via-5.dc.nova:27017',
+        'params': '?authSource=admin&authMechanism=SCRAM-SHA-1',
+    },
+
+    'DB2': {
+        'host': '10.229.18.53',
+        'port': 60008,
+        'database': 'dbprep',
+        'schema': 'NSVP',
+        'user': 'usrnsvbp',
+        'password': 'ibm00via',
+    }
+    # # DB2 Secundário
+    # 'DB2': {
+    #     'host': '10.0.10.39',
+    #     'port': 50000,
+    #     'database': 'DBPMVS',
+    #     'schema': 'PRDBAT',
+    #     'user': 'USER',
+    #     'password': 'PASS',
+    # }
+}
+
+
 def numbers_only(s: str) -> bool:
     from re import match
 
@@ -60,10 +90,15 @@ def parse_command_line():
     return parser.parse_args()
 
 
-def error(message, exit_code=1):
-    global logger
+def log(*args):
+    if not enable_log:
+        return
 
-    logger.critical(message)
+    [ print(a) for a in args ]
+
+
+def error(message, exit_code=1):
+    print('ERRO: ', message)
 
     exit(exit_code)
 
@@ -75,23 +110,63 @@ class Analysis(object):
         self.skus = skus
 
         for sku in skus:
-            self._results[sku] = { 'mongo': False }
+            self._results[sku] = {
+                'mongo': False,
+                'db2_mcr': False,
+                'db2_cnj': False,
+                }
 
 
     def on_mongo(self, sku, value = None):
+        return self.on_place('mongo', sku, value)
+
+
+    def on_db2_mcr(self, sku, value = None):
+        return self.on_place('db2_mcr', sku, value)
+
+
+    def on_db2_cnj(self, sku, value = None):
+        return self.on_place('db2_cnj', sku, value)
+
+
+    def on_place(self, place, sku, value):
+        if not sku:
+            return
+
         if value:
-            self._results[sku]['mongo'] = value
+            self._results[sku][place] = value
         else:
-            return self._results[sku]['mongo']
+            return self._results[sku][place]
+
+
+boolstr = {
+    True: 'yes',
+    False: 'no',
+}
 
 
 def main():
-    global args
-
     args = parse_command_line()
 
     analysis = Analysis(args.skus)
 
+    [ analysis.on_mongo(sku, True) for sku in check_mongo(args.skus) ]
+
+    for mercadoria, conjunto in check_db2(args.skus):
+        analysis.on_db2_mcr(mercadoria, True)
+        analysis.on_db2_cnj(conjunto, True)
+
+
+    for sku in analysis.skus:
+        print(sku + ':')
+        print(f'  ├ Mongo : { boolstr[analysis.on_mongo(sku)] }')
+        print(f'  ╰ DB2')
+        print(f'    ├ MCR : { boolstr[analysis.on_db2_mcr(sku)] }')
+        print(f'    ╰ CNJ : { boolstr[analysis.on_db2_cnj(sku)] }')
+
+    return 0
+
+def check_mongo(skus):
     try:
         import pymongo
     except ImportError:
@@ -99,44 +174,110 @@ def main():
 
     import urllib
 
-    [ analysis.on_mongo(sku) for sku in check_mongo(args.skus) ]
+    user, password, host, params = configs['mongo'].values()
 
-    for sku in analysis.skus:
-        print(sku + ':')
-        print(f'    Mongo: { "yes" if analysis.on_mongo(sku) else "no" }')
-
-    return 0
-
-def check_mongo(skus):
-    username = urllib.parse.quote_plus('svc_viamais')
-    password = urllib.parse.quote_plus('Ygy89xd*<jpVc53TXc845Ka')
+    user = urllib.parse.quote_plus(user)
+    password = urllib.parse.quote_plus(password)
 
     # connection_string = f'mongodb://{username}:{password}@10.128.18.110:27017,10.128.18.111:27017,10.128.18.112:27017,10.128.18.113:27017,10.128.18.40:27017'
 
     # connection_string = f'mongodb://{username}:{password}@mdbp1-via-1.dc.nova:27017,mdbp2-via-1.dc.nova:27017,mdbp3-via-1.dc.nova:27017,mdbp4-via-1.dc.nova:27017,mdbp5-via-1.dc.nova:27017'
-    connection_string = f'mongodb://{username}:{password}@mdbp1-via-1.dc.nova:27017,mdbp2-via-1.dc.nova:27017,mdbp3-via-1.dc.nova:27017,mdbp4-via-1.dc.nova:27017,mdbp5-via-1.dc.nova:27017/?authSource=admin&authMechanism=SCRAM-SHA-1'
+    connection_string = f'mongodb://{user}:{password}@{host}/{params}'
 
-    client = pymongo.MongoClient(connection_string)
     
     try:
+        client = pymongo.MongoClient(connection_string)
         database = client.catalogo
 
         collection = database.produtos
 
-        produtos = collection.find({ "_id.sku": { "$in": args.skus } })
-
-        skus = []
+        int_skus = [ int(s) for s in skus ]
+        produtos = collection.find({ "_id.sku": { "$in": int_skus } })
 
         try:
             for produto in produtos:
-                skus.append(produto.sku)
+                yield str(produto['_id']['sku'])
         finally:
             produtos.close()
 
     finally:
         client.close()
 
-    return skus
+
+def check_db2(skus):
+    try:
+        import ibm_db
+    except ImportError:
+        error('Module "ibm_db" is required')
+
+    host, port, database, schema, user, password = configs['DB2'].values()
+
+    connection_string = f'HOSTNAME={host};PORT={port};DATABASE={database};PROTOCOL=TCPIP;UID={user};PWD={password};'
+    log('Connection on DB2 with string:', connection_string)
+
+    try:
+        conn = ibm_db.connect(connection_string, '', '')
+
+        mcr_stmt = _make_mcr_stmt(conn, schema, skus)
+
+        cnj_stmt = _make_cnj_stmt(conn, schema, skus)
+
+        while True:
+            mercadoria = ibm_db.fetch_assoc(mcr_stmt)
+            conjunto = ibm_db.fetch_assoc(cnj_stmt)
+
+            if mercadoria:
+                mercadoria = str(mercadoria['CD_MCR'])
+            else:
+                mercadoria = None
+
+            if conjunto:
+                conjunto = str(conjunto['CD_AMANC'])
+            else:
+                conjunto = None
+
+            if mercadoria or conjunto:
+                yield mercadoria, conjunto
+            else:
+                break
+
+    finally:
+        ibm_db.close(conn)
+
+
+def _make_mcr_stmt(conn, schema, skus):
+    query = f'''
+select
+    *
+from
+    {schema}.mcr
+where
+    cd_mcr in ({",".join(skus)})
+'''
+
+    return _run_query(conn, query)
+
+
+def _make_cnj_stmt(conn, schema, skus):
+    query = f'''
+select
+    *
+from
+    nsvp.agp_mcr_anc
+where
+    cd_amanc in ({",".join(skus)})
+'''
+
+    return _run_query(conn, query)
+
+
+def _run_query(conn, query):
+    import ibm_db
+
+    log('Running query:', query)
+
+    return ibm_db.exec_immediate(conn, query)
+
 
 if __name__ == '__main__':
     returncode = main() or 0

@@ -28,7 +28,7 @@ def sku_list(raw: str) -> str:
     return result
 
 
-# milestone A
+# Milestone 2
 # def filial_list(raw: str) -> list:
 #     if not (result := str_list(raw)):
 #         raise ArgumentError('Invalid filial list format, it must be a comma separated list where each item must contain numbers only')
@@ -44,14 +44,14 @@ def parse_command_line():
                         type=sku_list,
                         help='SKU number, must contain only numbers')
 
-    # milestone C
+    # milestone 4
     # parser.add_argument('--environment',
     #                     '-e',
     #                     choices=['sit', 'hlg', 'stg', 'prd'],
     #                     default='prd',
     #                     help='Filial number list, comma separated')
 
-    # milestone A
+    # Milestone 2
     # parser.add_argument('--filiais',
     #                     '-f',
     #                     type=filial_list,
@@ -115,7 +115,6 @@ def main():
 
         collection = database.produtos
 
-        # breakpoint()
         produtos = collection.find({ "_id.sku": { "$in": args.skus } })
 
         try:
@@ -131,24 +130,6 @@ def main():
     for sku in analysis.skus:
         print(sku + ':')
         print(f'    Mongo: { "yes" if analysis.on_mongo(sku) else "no" }')
-
-    # Milestone 1
-    # Find no Mongo catalogo/produtos
-    # Select no DB2 mcr
-
-    # Milestone A
-    # Mongo: catalogo/estoque (se --filiais)
-    # DB2: mcr_eqt (se --filiais)
-    # Solr (se --filiais)
-    # Mongo: Checar adm/filial implantada=true e ativa=true
-
-    # Milestone B
-    # Verificar se retorna na vv-vitrine
-    # Verificar se retorna no vv-catalogo
-
-
-    # Milestone D
-    # Parâmetro para retornar flags da filial no Mongo em adm/filial/implantacoes
 
     return 0
 

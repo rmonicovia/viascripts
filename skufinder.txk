@@ -1,0 +1,22 @@
+:: skufinder
+
+- Milestone 1
+  - Find no Mongo catalogo/produtos
+  - Select no DB2 mcr
+
+- Milestone 2
+  - Filtrar por filiais
+  - Mongo: catalogo/estoque (se --filiais)
+  - DB2: mcr_eqt (se --filiais)
+  - Solr (se --filiais)
+  - Mongo: Checar adm/filial implantada=true e ativa=true
+
+- Milestone 3
+  - Verificar se retorna na vv-vitrine
+  - Verificar se retorna no vv-catalogo
+
+- Milestone 4
+  - Seleção por ambiente
+
+- Milestone D
+  - Parâmetro para retornar flags da filial no Mongo em adm/filial/implantacoes

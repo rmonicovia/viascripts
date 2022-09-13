@@ -1,0 +1,50 @@
+#!/bin/env bash
+
+user=dcnova
+host=10.128.145.137
+
+# mounts=( \
+#     "/var/log/vvjornada ~/mnt/sandbox_var_log_vvjornada" \
+#     "/home/dcnova ~/mnt/sandbox_home_dcnova" \
+#     "/ ~/mnt/sandbox_root")
+
+
+help() {
+    cat << EOF
+Uso: $(basename $0) <MOUNT ALIAS>
+
+Onde MOUNT ALIAS pode ser:
+
+var     Monta /var/log/vvjornada (remoto) em ~/mnt/sandbox_var_log_vvjornada (local)
+home    /home/dcnova                      -> ~/mnt/sandbox_home_dcnova
+root    /                                 -> ~/mnt/sandbox_root
+EOF
+
+    exit $1
+}
+
+case "$1" in
+    "h" | "-h" | "help" | "--help")
+        help 0
+    ;;
+
+    "var")
+        mkdir -p ~/mnt/sandbox_var_log_vvjornada
+        sshfs $user@$host:/var/log/vvjornada ~/mnt/sandbox_var_log_vvjornada
+        ;;
+
+    "home")
+        mkdir -p ~/mnt/sandbox_home_dcnova
+        sshfs $user@$host:/home/dcnova ~/mnt/sandbox_home_dcnova
+        ;;
+
+    "root")
+        mkdir -p ~/mnt/sandbox_root
+        sshfs $user@$host:/ ~/mnt/sandbox_root
+        ;;
+
+    *)
+        help 1
+    ;;
+esac
+        

@@ -156,12 +156,9 @@ def check_mongo(skus):
     user = urllib.parse.quote_plus(user)
     password = urllib.parse.quote_plus(password)
 
-    # connection_string = f'mongodb://{username}:{password}@10.128.18.110:27017,10.128.18.111:27017,10.128.18.112:27017,10.128.18.113:27017,10.128.18.40:27017'
-
-    # connection_string = f'mongodb://{username}:{password}@mdbp1-via-1.dc.nova:27017,mdbp2-via-1.dc.nova:27017,mdbp3-via-1.dc.nova:27017,mdbp4-via-1.dc.nova:27017,mdbp5-via-1.dc.nova:27017'
     connection_string = f'mongodb://{user}:{password}@{host}/{params}'
 
-    
+
     try:
         client = pymongo.MongoClient(connection_string)
         database = client.catalogo

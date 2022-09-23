@@ -69,9 +69,9 @@ def parse_command_line():
     parser = argparse.ArgumentParser(
         description='Gera um token para o vendedor online')
 
-    parser.add_argument('-p', '--profile')
-    parser.add_argument('-u', '--url')
-    parser.add_argument('-e', '--environment')
+    parser.add_argument('-p', '--profile', help='Perfil que será usado para logar no Via+')
+    parser.add_argument('-u', '--url', help='URL onde a token será gerado')
+    parser.add_argument('-e', '--environment', help='Seleciona o ambiente onde o token é gerado')
     parser.add_argument('--password', help='Override profile password')
 
     # TODO

@@ -1,6 +1,7 @@
 :: skufinder
+; Este arquivo é apenas para entrar o que já foi planejado. O skufinder.txk da pasta todo é um backlog deste arquivo
 
-- Milestone 1
+- Milestone 1 #done
   - Find no Mongo catalogo/produtos
   - Select no DB2 mcr
 

@@ -10,8 +10,9 @@ def main():
 
     s = solr.SolrConnection('http://solrmultileitura.dc.nova:8983/solr/catalogo')
 
-    # TODO Usar "in" para o sku nessa query
-    response = s.query(f'sku:{args.skus[0]}', fields=field_list(args.filiais))
+    query = make_query(args.skus)
+    fields = field_list(args.filiais)
+    response = s.query(q=query, fields=fields)
 
     for i, line in enumerate(response.results, 1):
       print(f'Linha {i}:')
@@ -38,6 +39,10 @@ def parse_command_line():
 
 def lista_separada_por_virgula(raw: str) -> list:
     return raw.split(',')
+
+
+def make_query(skus):
+    return f'sku:({" OR ".join(skus)})'
 
 
 def field_list(filiais):

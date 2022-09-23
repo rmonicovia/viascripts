@@ -104,7 +104,7 @@ def error(message, exit_code=1):
 
 
 class Analysis(object):
-    
+
     def __init__(self, skus):
         self._results = {}
         self.skus = skus
@@ -117,19 +117,19 @@ class Analysis(object):
                 }
 
 
-    def on_mongo(self, sku, value = None):
-        return self.on_place('mongo', sku, value)
-
-
     def on_db2_mcr(self, sku, value = None):
-        return self.on_place('db2_mcr', sku, value)
+        return self._on_place('db2_mcr', sku, value)
 
 
     def on_db2_cnj(self, sku, value = None):
-        return self.on_place('db2_cnj', sku, value)
+        return self._on_place('db2_cnj', sku, value)
 
 
-    def on_place(self, place, sku, value):
+    def on_mongo(self, sku, value = None):
+        return self._on_place('mongo', sku, value)
+
+
+    def _on_place(self, place, sku, value):
         if not sku:
             return
 

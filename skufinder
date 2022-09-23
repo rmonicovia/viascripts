@@ -116,9 +116,22 @@ class Analysis(object):
             return self._results[sku][place]
 
 
+    def analisys(self, sku) -> str:
+        if not self.on_db2_mcr(sku) and not self.on_db2_cnj(sku) and not self.on_mongo(sku):
+            return 'Problema de cadastro no DB2'
+
+        if self.on_db2_mcr(sku) or self.on_db2_cnj(sku):
+            if not self.on_mongo(sku):
+                return 'Problema com a sync'
+            else:
+                return 'Problema com a API do catálogo'
+
+        return 'Problema desconhecido'
+
+
 boolstr = {
     True: 'yes',
-    False: 'no',
+    False: 'no ',
 }
 
 
@@ -133,15 +146,27 @@ def main():
         analysis.on_db2_mcr(mercadoria, True)
         analysis.on_db2_cnj(conjunto, True)
 
+    # [ analysis.on_vitrine(sku, True) for sku in check_vitrine(args.skus) ]
+    # [ analysis.on_catalogo(sku, True) for sku in check_catalogo(args.skus) ]
+
+    print('           |        DB2        |        Mongo       |        APIs        |')
+    print('    SKU    | MCR | AGP_MCR_ANC | produtos | estoque | Vitrine | Catálogo | Conclusão')
+    print(' ---------- ----- ------------- ---------- --------- --------- ---------- -----------')
 
     for sku in analysis.skus:
-        print(sku + ':')
-        print(f'  ├ Mongo : { boolstr[analysis.on_mongo(sku)] }')
-        print(f'  ╰ DB2')
-        print(f'    ├ MCR : { boolstr[analysis.on_db2_mcr(sku)] }')
-        print(f'    ╰ CNJ : { boolstr[analysis.on_db2_cnj(sku)] }')
+        db2_mcr = boolstr[analysis.on_db2_mcr(sku)]
+        db2_cnj = boolstr[analysis.on_db2_cnj(sku)]
+        mongo_produtos = boolstr[analysis.on_mongo(sku)]
+        mongo_estoque = 'TODO'
+        api_vitrine = 'TODO'
+        api_catalogo = 'TODO'
+        conclusao = analysis.analisys(sku)
+
+        skustr = sku + (' ' * (8-len(sku)))
+        print(f'  {skustr} | {db2_mcr} | {db2_cnj}         | {mongo_produtos}      | {mongo_estoque}    | {api_vitrine}    | {api_catalogo}     | {conclusao}')
 
     return 0
+
 
 def check_mongo(skus):
     try:

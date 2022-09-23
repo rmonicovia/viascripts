@@ -72,10 +72,10 @@ def parse_command_line():
     parser.add_argument('-p', '--profile', help='Perfil que será usado para logar no Via+')
     parser.add_argument('-u', '--url', help='URL onde a token será gerado')
     parser.add_argument('-e', '--environment', help='Seleciona o ambiente onde o token é gerado')
+    parser.add_argument('-c', '--clipboard', help='Salva o token para a área de transferência')
     parser.add_argument('--password', help='Override profile password')
 
     # TODO
-    # parser.add_argument('--clipboard', help='Salva o token para a área de transferência')
     # parser.add_argument('--file', help='Salva o token para um arquivo')
     # parser.add_argument('--stdout', help='Imprime o token para a saída padrão')
 
@@ -203,9 +203,12 @@ def main():
 
     token = response_body['access_token']
 
-    copy_to_clipboard(token)
+    if args.clipboard:
+        copy_to_clipboard(token)
+        print('Token copiado para a área de transferência')
+    else:
+        print(token)
 
-    print('Token copiado para a área de transferência')
 
 
 if __name__ == '__main__':

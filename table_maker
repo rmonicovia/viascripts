@@ -32,9 +32,7 @@ def parse_command_line():
 
 
 def error(message, exit_code=1):
-    global logger
-
-    logger.critical(message)
+    print(message)
 
     exit(exit_code)
 

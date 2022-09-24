@@ -1,0 +1,485 @@
+/*PROCESSO DE CONSULTA DE PREÇO*/
+
+/*MERCADORIA
+
+BUSCA COMERCIALIZAÇAO VIGENTE
+
+Primeiro, buscar comercialização por filial*/
+
+  SELECT *
+    FROM PRDBAT.MCR_CMC         MCR,
+         PRDBAT.CMC_FIL         FIL    
+   WHERE MCR.CD_EMPGCB          = CÓDIGO DA EMPRESA
+    AND  MCR.CD_MCR             = CÓDIGO DO SKU
+    AND  MCR.CD_CMC             > 0
+    AND  FIL.CD_EMPGCB          = MCR.CD_EMPGCB    
+    AND  FIL.CD_CMC             = MCR.CD_CMC
+    AND  FIL.CD_FIL             = CÓDIGO DA FILIAL
+    AND  FIL.DT_CMCFIL_INI_VIG <= CURRENT DATE
+    AND (FIL.DT_CMCFIL_FIM_VIG  IS NULL
+     OR  FIL.DT_CMCFIL_FIM_VIG >= CURRENT DATE)
+    AND  MCR.DT_MCRCMC_INI_VIG <= CURRENT DATE
+    AND (MCR.DT_MCRCMC_FIM_VIG >= CURRENT DATE   
+     OR  MCR.DT_MCRCMC_FIM_VIG IS NULL)
+  FETCH  FIRST 1 ROW ONLY
+
+/*Se não encontrar dados, buscar comercialização por bandeira*/
+
+ SELECT *
+FROM   PRDBAT.MCR_CMC         MCR,
+       PRDBAT.CMC_TIP_AGP_VLD TIP,
+       PRDBAT.BND_CMC         BND
+WHERE  MCR.CD_EMPGCB          = CÓDIGO DA EMPRESA
+  AND  MCR.CD_MCR             = CÓDIGO DO SKU
+  AND  MCR.DT_MCRCMC_INI_VIG IS NOT NULL
+  AND (MCR.DT_MCRCMC_FIM_VIG IS NULL  OR
+       MCR.DT_MCRCMC_FIM_VIG >= CURRENT DATE)
+  AND  MCR.DT_MCRCMC_INI_VIG <= CURRENT DATE
+  AND  TIP.CD_EMPGCB          = MCR.CD_EMPGCB
+  AND  TIP.CD_CMC             = MCR.CD_CMC
+  AND  TIP.CD_TAVCMC          = CÓDIGO DO TIPO DE AGRUPAMENTO (AQUI, NO CASO = 2)
+  AND  BND.CD_EMPGCB          = MCR.CD_EMPGCB
+  AND  BND.CD_CMC             = MCR.CD_CMC
+  AND  BND.CD_BND             = BANDEIRA DA FILIAL
+ORDER  BY  MCR.DT_MCRCMC_INI_VIG 
+FETCH  FIRST 1 ROW ONLY;
+
+/*Se não encontrar dados, buscar comercialização padrão*/
+
+SELECT *
+FROM   PRDBAT.MCR_CMC         MCR,
+       PRDBAT.CMC_TIP_AGP_VLD TIP,
+       PRDBAT.BND_CMC         BND
+WHERE  MCR.CD_EMPGCB          = CÓDIGO DA EMPRESA
+  AND  MCR.CD_MCR             = CÓDIGO DO SKU
+  AND  MCR.DT_MCRCMC_INI_VIG IS NOT NULL
+  AND (MCR.DT_MCRCMC_FIM_VIG IS NULL  OR
+       MCR.DT_MCRCMC_FIM_VIG >= CURRENT DATE)
+AND  MCR.DT_MCRCMC_INI_VIG <= CURRENT DATE
+  AND  TIP.CD_EMPGCB          = MCR.CD_EMPGCB
+  AND  TIP.CD_CMC             = MCR.CD_CMC
+  AND  TIP.CD_TAVCMC          = CÓDIGO DO TIPO DE AGRUPAMENTO (AQUI, NO CASO = 1)
+  AND  BND.CD_EMPGCB          = MCR.CD_EMPGCB
+  AND  BND.CD_CMC             = MCR.CD_CMC
+  AND  BND.CD_BND             = BANDEIRA DA FILIAL
+ORDER  BY  MCR.DT_MCRCMC_INI_VIG 
+FETCH  FIRST 1 ROW ONLY
+ 
+/*BUSCA DADOS COMERCIALIZAÇÃO*/
+
+/*Com base no resultado das queries acima, obter os dados de tipo de preço da comercialização*/
+
+SELECT  CD_TIPPCO
+       ,CD_TIPPCO_MIN
+       ,CD_TIPPCO_LIM
+  FROM  CMC
+WHERE  CD_EMPGCB  =  CÓDIGO DA EMPRESA
+  AND  CD_CMC     =  CÓDIGO DA COMERCIALIZAÇÃO
+ 
+
+/*BUSCA PREÇO DO SKU NA COMERCIALIZAÇÃO*/
+ 
+/*Usando os códigos de tipo de preço obtidos e sku, obter os preços desejados (cartaz, mínimo, limite)*/
+
+SELECT A.VR_PCOMCR
+      ,A.DT_PCOMCR_INI_VIG
+   FROM HTR_PCO_MCR_ALT A
+  WHERE A.CD_EMPGCB_OPR      =  CÓDIGO DA EMPRESA
+    AND A.CD_TIPPCO          =  CÓDIGO DO TIPO DE PREÇO
+    AND A.CD_MCR             =  CÓDIGO DO SKU
+    AND A.TS_HPMALT          =
+  (SELECT B.TS_HPMALT
+     FROM HTR_PCO_MCR_ALT B
+    WHERE B.CD_EMPGCB_OPR    = A.CD_EMPGCB_OPR
+      AND B.CD_TIPPCO        = A.CD_TIPPCO
+      AND B.CD_MCR           = A.CD_MCR
+      AND B.DT_PCOMCR_INI_VIG
+                            <= CURRENT DATE
+    ORDER BY B.DT_PCOMCR_INI_VIG DESC
+            ,B.TS_HPMALT         DESC
+    FETCH FIRST 1 ROW ONLY)
+WITH UR
+ 
+/*CONJUNTO*/
+
+/*BUSCA COMERCIALIZAÇAO VIGENTE
+ 
+Primeiro, buscar comercialização por filial*/
+
+  SELECT *
+    FROM PRDBAT.CMC_AGP_MCR_ANC CNJ,
+         PRDBAT.CMC_FIL         FIL    
+   WHERE CNJ.CD_EMPGCB          = CÓDIGO DA EMPRESA
+    AND  CNJ.CD_AMANC           = CÓDIGO DO CONJUNTO
+    AND  CNJ.CD_CMC             > 0
+    AND  FIL.CD_EMPGCB          = CNJ.CD_EMPGCB    
+    AND  FIL.CD_CMC             = CNJ.CD_CMC
+    AND  FIL.CD_FIL             = CÓDIGO DA FILIAL
+    AND  FIL.DT_CMCFIL_INI_VIG <= CURRENT DATE
+    AND (FIL.DT_CMCFIL_FIM_VIG  IS NULL
+     OR  FIL.DT_CMCFIL_FIM_VIG >= CURRENT DATE)
+    AND  CNJ.DT_CAMANC_INI_VIG <= CURRENT DATE
+    AND (CNJ.DT_CAMANC_FIM_VIG >= CURRENT DATE   
+     OR  CNJ.DT_CAMANC_FIM_VIG IS NULL)
+  FETCH  FIRST 1 ROW ONLY
+ 
+/*Se não encontrar dados, buscar comercialização por bandeira*/
+
+ SELECT *
+FROM   PRDBAT.CMC_AGP_MCR_ANC CNJ,
+       PRDBAT.CMC_TIP_AGP_VLD TIP,
+       PRDBAT.BND_CMC         BND
+WHERE  CNJ.CD_EMPGCB          = CÓDIGO DA EMPRESA
+  AND  CNJ.CD_AMANC           = CÓDIGO DO CONJUNTO
+  AND  CNJ.DT_CAMANC_INI_VIG IS NOT NULL
+  AND (CNJ.DT_CAMANC_FIM_VIG IS NULL  OR
+       CNJ.DT_CAMANC_FIM_VIG >= CURRENT DATE)
+  AND  CNJ.DT_CAMANC_INI_VIG <= CURRENT DATE
+  AND  TIP.CD_EMPGCB          = CNJ.CD_EMPGCB
+  AND  TIP.CD_CMC             = CNJ.CD_CMC
+  AND  TIP.CD_TAVCMC          = CÓDIGO DO TIPO DE AGRUPAMENTO (AQUI, NO CASO = 2)
+  AND  BND.CD_EMPGCB          = CNJ.CD_EMPGCB
+  AND  BND.CD_CMC             = CNJ.CD_CMC
+  AND  BND.CD_BND             = BANDEIRA DA FILIAL
+ORDER  BY  CNJ.DT_CAMANC_INI_VIG 
+FETCH  FIRST 1 ROW ONLY;
+ 
+/**Conjunto não possui comercialização padrão*/
+ 
+/*BUSCA DADOS COMERCIALIZAÇÃO
+ 
+Com base no resultado das queries acima, obter os dados de tipo de preço da comercialização*/
+
+SELECT  CD_TIPPCO
+       ,CD_TIPPCO_MIN
+       ,CD_TIPPCO_LIM
+  FROM  CMC
+WHERE  CD_EMPGCB  =  CÓDIGO DA EMPRESA
+  AND  CD_CMC     =  CÓDIGO DA COMERCIALIZAÇÃO
+ 
+/*BUSCA PREÇO DO CONJUNTO NA COMERCIALIZAÇÃO
+
+Usando os códigos de tipo de preço obtidos e CONJUNTO, obter os preços desejados (cartaz, mínimo, limite)*/
+
+SELECT A.VR_PAMANC
+      ,A.DT_PAMANC_INI_VIG
+   FROM HTR_PCO_AGP_MCR A
+  WHERE A.CD_EMPGCB      =  CÓDIGO DA EMPRESA
+    AND A.CD_TIPPCO      =  CÓDIGO DO TIPO DE PREÇO
+    AND A.CD_AMANC       =  CÓDIGO DO CONJUNTO
+    AND A.TS_HPAMCR      =
+  (SELECT B.TS_HPAMCR
+     FROM HTR_PCO_AGP_MCR B
+    WHERE B.CD_EMPGCB    = A.CD_EMPGCB
+      AND B.CD_TIPPCO    = A.CD_TIPPCO
+      AND B.CD_AMANC     = A.CD_AMANC
+      AND B.DT_PAMANC_INI_VIG
+                        <= CURRENT DATE
+    ORDER BY B.DT_PAMANC_INI_VIG DESC
+            ,B.TS_HPAMCR         DESC
+    FETCH FIRST 1 ROW ONLY)
+WITH UR
+ 
+/*PROCESSO DE CRIAÇÃO DE COMERCIALIZAÇÃO MANUAL
+ 
+INCLUSÃO
+
+Passo 1 - Configuração da Comercialização
+
+1.01 - obter o ultimo código de preço +1, +2 e +3*/
+
+SELECT  MAX(CD_TIPPCO) + X
+ FROM  TIP_PCO
+ 
+/*1.02 - obter ultimo código de comercialização + 1*/
+
+-SELECT COALESCE(MAX(CD_CMC), 0)
+ FROM CMC T1
+WHERE T1.CD_EMPGCB = 21
+  AND T1.CD_CMC   NOT IN (32000, 32001)
+ WITH UR
+ 
+/*1.03 - incluir cod de precos na tabela TIP_PCO*/
+
+--CD_TIPPCO     = Código do tipo de preço
+--DS_TIPPCO     = Descrição do tipo de preço
+--ST_TIPPCO     = "S"
+--DS_TIPPCO_ABV = " "
+
+/*
+1.04 - incluir comercialização na tabela CMC
+
+CD_EMPGCB      = 21
+CD_CMC         = ultimo código de CMC + 1
+DS_CMC         = Descrição da Comercialização
+DT_CMC_INI_VIG = Data início de vigencia da comercialização
+HR_CMC_INI_VIG = 00:00:00
+DT_CMC_FIM_VIG = Data fim de vigência da comercialização (null)
+CD_TIPPCO      = ultimo cd_tippco cadastrado + 1
+CD_GOCMC       = ANC
+TX_CMC_MAX_DES = 0
+TX_CMC_DES_PCO = 30
+TX_CMC_RED_PCO = null
+TX_CMC_DES_FUN = 5
+ST_CMC_INI_CON = " "
+CD_CMC_CPI_ANC = null
+ST_CMC_ATO     = "S"
+CD_CMC_CND_PGT = Código da última condição de pagamento usada
+ST_CMC_CND_VLD = "S"
+ST_CMC_TAX_VLD = " "
+ST_CMC_PLA_VLD = " "
+ST_CMC_DES_VLD = "S"
+ST_CMC_ENT_VLD = " "
+ST_CMC_PVC_VLD = " "
+CD_TIPPCO_MIN  = ultimo cd_tippco cadastrado + 3
+CD_TIPPCO_LIM  = ultimo cd_tippco cadastrado + 2
+CD_TPCMC       = null
+
+1.05 - incluir na tabela BND_CMC a bandeira associada a comercialização
+
+CD_BND    = bandeira da comercialização
+CD_EMPGCB = 21
+CD_CMC    = código da comercialização obtido acima
+ST_BNDCMC = "S"
+
+1.06 - se comercialização por filial, incluir filiais associadas na tabela CMF_FIL
+
+CD_EMPGCB         = 21
+CD_CMC            = código da comercialização obtido acima
+CD_FIL            = código da filial
+DT_CMCFIL_INI_VIG = data inicio de vigencia da filial na cmc
+DT_CMCFIL_FIM_VIG = data fim de vigencia da filial na cmc
+
+1.07 - incluir associação de tipo válido de comercialização na tabela CMC_TIP_AGP_VLD
+
+CD_EMPGCB = 21
+CD_CMC    = código da comercialização obtido acima
+CD_TAVCMC = 6
+
+e
+
+se comercialização por empresa
+ CD_EMPGCB = 21
+ CD_CMC    = código da comercialização obtido acima
+ CD_TAVCMC = 2
+senão
+ CD_EMPGCB = 21
+ CD_CMC    = código da comercialização obtido acima
+ CD_TAVCMC = 3
+
+Passo 2 - Cadastro de condições de pagamento
+ 
+2.01 - obter os dados de condição de pagamento de alguma CMC modelo e inserir usando o código de comercialização obtido acima.
+
+se bandeira = 1 usar CD_EMPGCB = 21 e CD_CMC = 1
+se bandeira = 2 usar CD_EMPGCB = 21 e CD_CMC = 101
+*/
+
+INSERT INTO CND_PGT_CMC
+SELECT CD_EMPGCB
+  Código da comercialização obtido anteriormente
+  CD_CPCMC
+  DT_CPCMC_INI_VIG
+  DT_CPCMC_FIM_VIG
+  CD_EPCMC
+  CD_TIPVND
+  CD_FMAPGT
+  QT_CPCMC_PTC_MIN
+  QT_CPCMC_PTC_MAX
+  ST_CPCMC_ENT
+  ST_CPCMC_FXA_ENT
+  TX_CPCMC_ENT_MIN
+  TX_CPCMC_ENT_MAX
+  TX_CPCMC_ENT
+  ST_CPCMC_DES
+  TX_CPCMC_DES_MIN
+  TX_CPCMC_DES_MAX
+  TX_CPCMC_DES
+  QT_CPCMC_DPV_MIN
+  QT_CPCMC_DPV_MAX
+  QT_CPCMC_DPV
+  DT_CPCMC_PRI_VEN
+  TX_CPCMC_DIA_MIN
+  TX_CPCMC_DIA_MAX
+  TX_CPCMC
+  VR_CPCMC_ARR
+  DT_CPCMC_CAD
+  QT_CPCMC_DTQ --(para configurar condição/parcela destaque, este campo deve conter o número da parcela destaque, valor que   deve estar entre os valores dos campos QT_CPCMC_PTC_MIN e QT_CPCMC_PTC_MAX da condição de pagamento. Este   campo só pode ser não nulo em uma condição de pagamento vigente. Este campo pode ser atualizado após a   inclusão de todas as condições de pagamento)
+  TX_CPCMC_CCD
+  CD_TCCMC
+  CD_PCCMC
+  CD_TCELN
+  TX_CPCMC_FUN
+FROM  CND_PGT_CMC
+WHERE  CD_EMPGCB = 21
+ AND  CD_CMC    = 1 ou 101, de acordo com a bandeira
+ AND (DT_CPCMC_FIM_VIG >= CURRENT DATE
+  OR  DT_CPCMC_FIM_VIG IS NULL);
+
+--2.02 - obter os dados de coeficiente das condições de pagamento e inserir usando o código de comercialização obtido acima.
+ 
+INSERT INTO COE_CND_PGT_CMC
+SELECT CD_EMPGCB
+  Código da comercialização obtido anteriormente
+  CD_CPCMC
+  QT_CCPCMC_PTC
+  VR_CCPCMC_COE
+  VR_CCPCMC_COE_FUN
+ FROM  COE_CND_PGT_CMC A
+WHERE  A.CD_EMPGCB = 21
+  AND  A.CD_CMC    = 1 ou 101, de acordo com a bandeira
+  AND  EXISTS (
+SELECT  1
+ FROM  CND_PGT_CMC B
+WHERE  B.CD_EMPGCB = A.CD_EMPGCB
+  AND  B.CD_CMC    = A.CD_CMC
+  AND  B.CD_CPCMC  = A.CD_CPCMC
+  AND (B.DT_CPCMC_FIM_VIG >= CURRENT DATE
+OR  B.DT_CPCMC_FIM_VIG IS NULL));
+
+--2.03 - Obter BIN (identificador de bandeira/emissor) dos cartões das condições de pagamento  e inserir usando o código de comercialização obtido acima.
+
+INSERT  INTO BIN_CND_PGT_CMC
+SELECT  CD_BINCCD
+Código da comercialização obtido anteriormente
+CD_CMC
+CD_CPCMC  
+ FROM  BIN_CND_PGT_CMC A
+WHERE  A.CD_EMPGCB = 21
+  AND  A.CD_CMC    = 1
+  AND  EXISTS (
+SELECT  1
+ FROM  CND_PGT_CMC B
+WHERE  B.CD_EMPGCB = A.CD_EMPGCB
+  AND  B.CD_CMC    = A.CD_CMC
+  AND  B.CD_CPCMC  = A.CD_CPCMC
+  AND (B.DT_CPCMC_FIM_VIG >= CURRENT DATE
+OR  B.DT_CPCMC_FIM_VIG IS NULL))
+
+/*Passo 3 - Cadastro de preços
+
+3.01 - Se Mercadoria
+3.01.01 - Incluir registro na tabela MCR_CMC
+CD_EMPGCB         = 21
+CD_CMC            = Código da comercialização obtido anteriormente
+CD_MCR            = SKU desejado
+DT_MCRCMC_INI_VIG = Data Inicio de vigencia
+HR_MCRCMC_INI_VIG = 00:00:00
+DT_MCRCMC_FIM_VIG = Data Fim de vigencia (null)
+HR_MCRCMC_FIM_VIG = 23:59:59
+ST_MCRCMC_TAX_PCO = "P" se for usar preço mínimo, senão "N"
+ST_MCRCMC_IRR_DES = "N"
+ST_MCRCMC_BLQ_MIN = "N"
+TX_MCRCMC_DES     = null
+TX_MCRCMC_DES_BLT = 0
+ST_MCRCMC_ANC     = " "
+VR_MCRCMC         = preço cartaz (null)
+VR_MCRCMC_MIN     = preço mínimo (null)
+VR_MCRCMC_LIM     = preço limite (null)
+ST_MCRCMC_VIG     = "S" se for preço vigente, "N" se for futuro
+CD_TPCMC          = null
+
+3.01.02 - Incluir Preço de venda na tabela HTR_PCO_MCR_ALT
+
+CD_TIPPCO         = Código do tipo de preço + 1 obtido anteriormente
+CD_MCR            = SKU Desejado
+TS_HPMALT         = CURRENT TIMESTAMP
+DT_PCOMCR_INI_VIG = Data Inicio de vigencia do preço
+VR_PCOMCR         = Preço cartaz
+CD_EMPGCB         = 21
+CD_FUN            = 19
+CD_EMPGCB_OPR     = 21
+CD_BND            = bandeira da comercialização
+ST_HPMALT_ENV_SMS = null
+
+3.01.03 - Incluir Preço limite na tabela HTR_PCO_MCR_ALT
+CD_TIPPCO         = Código do tipo de preço + 2 obtido anteriormente
+CD_MCR            = SKU Desejado
+TS_HPMALT         = CURRENT TIMESTAMP
+DT_PCOMCR_INI_VIG = Data Inicio de vigencia do preço
+VR_PCOMCR         = Preço limite
+CD_EMPGCB         = 21
+CD_FUN            = 19
+CD_EMPGCB_OPR     = 21
+CD_BND            = bandeira da comercialização
+ST_HPMALT_ENV_SMS = null
+
+3.01.04 - Se for utilizar preço minimo, incluí-lo na tabela HTR_PCO_MCR_ALT
+CD_TIPPCO         = Código do tipo de preço + 3 obtido anteriormente
+CD_MCR            = SKU Desejado
+TS_HPMALT         = CURRENT TIMESTAMP
+DT_PCOMCR_INI_VIG = Data Inicio de vigencia do preço
+VR_PCOMCR         = Preço mínimo
+CD_EMPGCB         = 21
+CD_FUN            = 19
+CD_EMPGCB_OPR     = 21
+CD_BND            = bandeira da comercialização
+ST_HPMALT_ENV_SMS = null
+
+3.02 - Se Conjunto
+3.02.01 - Incluir registro na tabela CMC_AGP_MCR_ANC
+CD_EMPGCB         = 21
+CD_CMC            = Código da comercialização obtido anteriormente
+CD_AMANC          = Código de conjunto desejado
+DT_CAMANC_INI_VIG = Data Inicio de vigencia
+DT_CAMANC_FIM_VIG = Data Fim de vigencia (null)
+ST_CAMANC_TAX_PCO = "P" se for usar preço mínimo, senão "N"
+ST_CAMANC_IRR_DES = "N"
+ST_CAMANC_BLQ_MIN = "N"
+TX_CAMANC_DES     = null
+ST_CAMANC_ANC     = "N"
+TX_CAMANC_DES_BLT = 0
+VR_CAMANC         = preço cartaz (null)
+VR_CAMANC_LIM     = preço mínimo (null)
+VR_CAMANC_MIN     = preço limite (null)
+ST_CAMANC_VIG     = "S" se for preço vigente, "N" se for futuro
+CD_TPCMC          = null
+
+3.02.02 - Incluir Preço de venda na tabela HTR_PCO_AGP_MCR
+
+CD_TIPPCO         = Código do tipo de preço + 1 obtido anteriormente
+CD_AMANC          = Código de conjunto desejado
+TS_HPAMCR         = CURRENT TIMESTAMP
+DT_PAMANC_INI_VIG = Data Inicio de vigencia do preço
+VR_PAMANC         = Preço cartaz
+CD_EMPGCB_FUN     = 21
+CD_FUN            = 19
+CD_EMPGCB         = 21
+CD_BND            = bandeira da comercialização
+ST_HPAMCR_ENV_SMS = null
+
+3.02.03 - Incluir Preço de venda na tabela HTR_PCO_AGP_MCR
+
+CD_TIPPCO         = Código do tipo de preço + 2 obtido anteriormente
+CD_AMANC          = Código de conjunto desejado
+TS_HPAMCR         = CURRENT TIMESTAMP
+DT_PAMANC_INI_VIG = Data Inicio de vigencia do preço
+VR_PAMANC         = Preço limite
+CD_EMPGCB_FUN     = 21
+CD_FUN            = 19
+CD_EMPGCB         = 21
+CD_BND            = bandeira da comercialização
+ST_HPAMCR_ENV_SMS = null
+
+3.02.04 - Se for utilizar preço minimo, incluí-lo na tabela HTR_PCO_AGP_MCR
+CD_TIPPCO         = Código do tipo de preço + 3 obtido anteriormente
+CD_AMANC          = Código de conjunto desejado
+TS_HPAMCR         = CURRENT TIMESTAMP
+DT_PAMANC_INI_VIG = Data Inicio de vigencia do preço
+VR_PAMANC         = Preço mínimo
+CD_EMPGCB_FUN     = 21
+CD_FUN            = 19
+CD_EMPGCB         = 21
+CD_BND            = bandeira da comercialização
+ST_HPAMCR_ENV_SMS = null
+
+
+ALTERAÇÃO
+
+Para alteração de um preço vigente, o procedimento é obter os códigos CD_TIPPCO, CD_TIPPCO_LIM, CD_TIPPCO_MIN da comercialização desejada, e executar os passos 3.01.02, 3.01.03 e 3.01.04 (no caso de mercadoria), 3.02.02, 3.02.03 e 3.02.04 (no caso de conjunto).
+
+Caso a alteração mude o modo de desconto do preço (desconto comercialização ou preço mínimo), ou mude a comercialização vigente do sku/conjunto, deve ser feita a exclusão do item vigente (conforme descrito abaixo), e executados os passos 3.01/3.02 para a comercialização nova desejada.
+
+EXCLUSÃO
+
+A exclusão do item na comercialização, se o item estiver vigente, deve ser feita atualizando o campo DT_MCRCMC_FIM_VIG ou DT_CAMANC_FIM_VIG com CURRENT DATE - 1 DAY e atualizado o campo ST_MCRCMC_VIG = "N"(mercadoria)/ST_CAMANC_VIG = "N"(conjunto). Se for um item futuro, pode ser feito DELETE nos dados inseridos nos passos 3.01 e 3.02*/

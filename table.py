@@ -25,21 +25,28 @@ class Table(object):
 
 
     def lines(self):
+        generators = [ c.provider() for c in self._columns ]
+
         while True:
-            all_none = True
-
             values = list()
-            for col in self._columns:
-                value = col.provider()
-                values.append(value)
-
-                if value != None:
-                    all_none = False
-
-            if all_none:
-                return
-            else:
+            some_running = False
+            for g in generators:
+                try:
+                    values.append(next(g))
+                    some_running = True
+                except StopIteration as e:
+                    values.append(None)
+                
+            if some_running:
                 yield values
+            else:
+                break
+            # try:
+            #     values = [ next(g) for g in generators ]
+            # except StopIteration as e:
+            #     return
+
+            # yield values
 
 
 class Column(object):
@@ -97,28 +104,28 @@ class DefaultTableFormatter(TableFormatter):
 
 
     def _make_header_line(self):
-        formatted = self.format_cells([ col.header for col in self.table._columns ])
+        formatted = self.format_cells([ col.header for col in self.table._columns ], True)
 
         return self.format_line(formatted, True)
 
 
     def line(self, data):
-        formatted = self.format_cells(data)
+        formatted = self.format_cells(data, False)
         
         return self.format_line(formatted)
 
 
-    def format_cells(self, data_line):
+    def format_cells(self, data_line, skipcolformatter):
         formatted = list()
 
         for col, data_cell in zip(self.table._columns, data_line):
-            formatted.append(self.format_cell(col, data_cell))
+            formatted.append(self.format_cell(col, data_cell, skipcolformatter))
 
         return formatted
 
     
-    def format_cell(self, column, data):
-        datastr = column.formatter(data)
+    def format_cell(self, column, data, skipcolformatter):
+        datastr = data if skipcolformatter else column.formatter(data)
         spacer = column.width - len(datastr) - self.cell_padding['left'] - self.cell_padding['right']
 
         cell = ' ' * self.cell_padding['left']
@@ -175,6 +182,10 @@ class DefaultTableFormatter(TableFormatter):
         else:
             return line
 
+
     def footer(self):
-        return [ self.section_separator_char * len(self.headers_line) ]
+        if self.section_separator['after_body']:
+            return [ self.section_separator_char * len(self.headers_line) ]
+        else:
+            return list()
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from sys import exit
 from argparse import ArgumentParser, ArgumentError
+from db2datasource import DB2DataSource
+from value_formatters import BooleanFormatter
+from mongodatasource import MongoDataSource
+from skudatasource import SKUDataSource
+from solrdatasource import SolrDataSource
+from table import Table, DefaultTableFormatter
 from viacommons import _load_configs
-
-
-enable_log = False
-
-
-configs = _load_configs()
+from sys import exit
 
 
 def numbers_only(s: str) -> bool:
@@ -32,15 +32,7 @@ def sku_list(raw: str) -> str:
     if not (result := str_list(raw)):
         raise ArgumentError('Invalid SKU list format, it must be a comma separated list where each item must contain numbers only')
 
-    return result
-
-
-# Milestone 2
-# def filial_list(raw: str) -> list:
-#     if not (result := str_list(raw)):
-#         raise ArgumentError('Invalid filial list format, it must be a comma separated list where each item must contain numbers only')
-# 
-#     return result
+    return sorted(result)
 
 
 def parse_command_line():
@@ -51,258 +43,50 @@ def parse_command_line():
                         type=sku_list,
                         help='SKU number, must contain only numbers')
 
-    # milestone 4
-    # parser.add_argument('--environment',
-    #                     '-e',
-    #                     choices=['sit', 'hlg', 'stg', 'prd'],
-    #                     default='prd',
-    #                     help='Filial number list, comma separated')
-
-    # Milestone 2
-    # parser.add_argument('--filiais',
-    #                     '-f',
-    #                     type=filial_list,
-    #                     help='Filial number list, comma separated')
-
     return parser.parse_args()
 
 
-def log(*args):
-    if not enable_log:
-        return
-
-    [ print(a) for a in args ]
-
-
-def error(message, exit_code=1):
-    print('ERRO: ', message)
-
-    exit(exit_code)
-
-
-class Analysis(object):
-
-    def __init__(self, skus):
-        self._results = {}
-        self.skus = skus
-
-        for sku in skus:
-            self._results[sku] = {
-                'mongo': False,
-                'db2_mcr': False,
-                'db2_cnj': False,
-                }
-
-
-    def on_db2_mcr(self, sku, value = None):
-        return self._on_place('db2_mcr', sku, value)
-
-
-    def on_db2_cnj(self, sku, value = None):
-        return self._on_place('db2_cnj', sku, value)
-
-
-    def on_mongo(self, sku, value = None):
-        return self._on_place('mongo', sku, value)
-
-
-    def _on_place(self, place, sku, value):
-        if not sku:
-            return
-
-        if value:
-            self._results[sku][place] = value
-        else:
-            return self._results[sku][place]
-
-
-    def analisys(self, sku) -> str:
-        if not self.on_db2_mcr(sku) and not self.on_db2_cnj(sku) and not self.on_mongo(sku):
-            return 'Problema de cadastro no DB2'
-
-        if self.on_db2_mcr(sku) or self.on_db2_cnj(sku):
-            if not self.on_mongo(sku):
-                return 'Problema com a sync'
-            else:
-                return 'Problema com a API do catálogo'
-
-        return 'Problema desconhecido'
-
-
-boolstr = {
-    True: 'yes',
-    False: 'no ',
-}
-
+# find skus informados na linha de comando
+# find skus em arquivo
+# find skus com dt_mod agora - x tempo informado na linha de comando
+# daemon que fica fazendo select na mcr com dt_mod agora - tempo da sync terminar o serviço dela
+# O daemon também pode levar em conta o tempo do pod mais antigo no OC
 
 def main():
     args = parse_command_line()
 
-    analysis = Analysis(args.skus)
+    # args.skus = list()
+    # with open('/home/rmonico/skus2') as source:
+    #     for sku in source.readlines():
+    #         args.skus.append(sku.strip())
 
-    [ analysis.on_mongo(sku, True) for sku in check_mongo(args.skus) ]
 
-    for mercadoria, conjunto in check_db2(args.skus):
-        analysis.on_db2_mcr(mercadoria, True)
-        analysis.on_db2_cnj(conjunto, True)
+    sku_data_source = SKUDataSource(args.skus)
 
-    # [ analysis.on_vitrine(sku, True) for sku in check_vitrine(args.skus) ]
-    # [ analysis.on_catalogo(sku, True) for sku in check_catalogo(args.skus) ]
+    configs = _load_configs()
 
-    print('           |        DB2        |        Mongo       |        APIs        |')
-    print('    SKU    | MCR | AGP_MCR_ANC | produtos | estoque | Vitrine | Catálogo | Conclusão')
-    print(' ---------- ----- ------------- ---------- --------- --------- ---------- -----------')
+    db2_data_source = DB2DataSource(configs['DB2'], args.skus)
+    mongo_data_source = MongoDataSource(configs['mongo'], args.skus)
+    solr_data_source = SolrDataSource(configs['solr'], args.skus)
 
-    for sku in analysis.skus:
-        db2_mcr = boolstr[analysis.on_db2_mcr(sku)]
-        db2_cnj = boolstr[analysis.on_db2_cnj(sku)]
-        mongo_produtos = boolstr[analysis.on_mongo(sku)]
-        mongo_estoque = 'TODO'
-        api_vitrine = 'TODO'
-        api_catalogo = 'TODO'
-        conclusao = analysis.analisys(sku)
+    booleanformatter = BooleanFormatter().format
 
-        skustr = sku + (' ' * (8-len(sku)))
-        print(f'  {skustr} | {db2_mcr} | {db2_cnj}         | {mongo_produtos}      | {mongo_estoque}    | {api_vitrine}    | {api_catalogo}     | {conclusao}')
+    table = Table()
 
+    table.column(header='SKU', provider=sku_data_source.sku, width=10, alignment='left', formatter=str)
+    table.column(header='DB2 MCR', provider=db2_data_source.mcr, width=9, alignment='center', formatter=booleanformatter)
+    table.column(header='DB2 AGP_MCR_ANC', provider=db2_data_source.agp_mcr_anc, width=17, alignment='center', formatter=booleanformatter)
+    table.column(header='Mongo produtos', provider=mongo_data_source.produtos, width=16, alignment='center', formatter=booleanformatter)
+
+    table.column(header='Solr Catalogo', provider=solr_data_source.solr, width=15, alignment='center', formatter=booleanformatter)
+
+    table.print(DefaultTableFormatter())
+    
     return 0
-
-
-def check_mongo(skus):
-    try:
-        import pymongo
-    except ImportError:
-        error('Module "pymongo" is required')
-
-    import urllib
-
-    user, password, host, params = configs['mongo'].values()
-
-    user = urllib.parse.quote_plus(user)
-    password = urllib.parse.quote_plus(password)
-
-    connection_string = f'mongodb://{user}:{password}@{host}/{params}'
-
-
-    try:
-        client = pymongo.MongoClient(connection_string)
-        database = client.catalogo
-
-        collection = database.produtos
-
-        int_skus = [ int(s) for s in skus ]
-        produtos = collection.find({ "_id.sku": { "$in": int_skus } })
-
-        try:
-            for produto in produtos:
-                yield str(produto['_id']['sku'])
-        finally:
-            produtos.close()
-
-    finally:
-        client.close()
-
-
-def check_db2(skus):
-    try:
-        import ibm_db
-    except ImportError:
-        error('Module "ibm_db" is required')
-
-    host, port, database, schema, user, password = configs['DB2'].values()
-
-    connection_string = f'HOSTNAME={host};PORT={port};DATABASE={database};PROTOCOL=TCPIP;UID={user};PWD={password};'
-    log('Connection on DB2 with string:', connection_string)
-
-    try:
-        conn = ibm_db.connect(connection_string, '', '')
-
-        mcr_stmt = _make_mcr_stmt(conn, schema, skus)
-
-        cnj_stmt = _make_cnj_stmt(conn, schema, skus)
-
-        while True:
-            mercadoria = ibm_db.fetch_assoc(mcr_stmt)
-            conjunto = ibm_db.fetch_assoc(cnj_stmt)
-
-            if mercadoria:
-                mercadoria = str(mercadoria['CD_MCR'])
-            else:
-                mercadoria = None
-
-            if conjunto:
-                conjunto = str(conjunto['CD_AMANC'])
-            else:
-                conjunto = None
-
-            if mercadoria or conjunto:
-                yield mercadoria, conjunto
-            else:
-                break
-
-    finally:
-        ibm_db.close(conn)
-
-
-def _make_mcr_stmt(conn, schema, skus):
-    query = f'''
-select
-    *
-from
-    {schema}.mcr
-where
-    cd_mcr in ({",".join(skus)})
-'''
-
-    return _run_query(conn, query)
-
-
-def _make_cnj_stmt(conn, schema, skus):
-    query = f'''
-select
-    *
-from
-    nsvp.agp_mcr_anc
-where
-    cd_amanc in ({",".join(skus)})
-'''
-
-    return _run_query(conn, query)
-
-
-def _run_query(conn, query):
-    import ibm_db
-
-    log('Running query:', query)
-
-    return ibm_db.exec_immediate(conn, query)
-
-
-def check_vitrine(skus):
-    import requests
-
-    url = f'http://api-jornada.casasbahia.net/vv-vitrine/catalogo/catalogo?per_page=10&q={",".join(skus)}&tipoBusca=DEPARTAMENTO&fields=estruturasMercadologicas,filtros,totalProdutos,indiceRentabilidade,detalhe,produtos.sku,produtos.tipoProduto,produtos.nomeResumido,produtos.nomeCompleto,produtos.estado,produtos.estados,produtos.imagemPrincipal,produtos.tagVitrine,produtos.slugCategoria,produtos.canal,produtos.setor'
-    headers = { 'Authorization': _get_token() }
-
-    response = requests.get(url, headers = headers)
-
-    if response.status == 200:
-        print(response.json())
-    else:
-        print(response.text)
-
-
-def check_catalogo():
-    print('TODO')
-    # curl http://localhost:8080/produto/MERCADORIA/4623410\?filial\=1000\&exibirIndisponibilidade\=false\&limparCache\=true -H "Authorization: bearer $(viatoken)"
-    # Pegar a outra request para conjunto
-
-def _get_token():
-    # Deve devolver o token com "bearer " no começo
-    raise Exception('TODO')
 
 
 if __name__ == '__main__':
     returncode = main() or 0
 
     exit(returncode)
+

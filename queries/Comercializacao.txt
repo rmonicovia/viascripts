@@ -1,3 +1,11 @@
+/*
+Precedência da aplicação dos códigos de comercialização:
+
+filial
+  else: empresa
+    else: padrão
+*/
+
 /*PROCESSO DE CONSULTA DE PREÇO*/
 
 /*MERCADORIA

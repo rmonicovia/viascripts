@@ -17,7 +17,9 @@ select
   qt_emcfil_mos as mostruario,
   qt_emcfil_rsr_vnd as reservado_venda
 from
-  etq_mcr_cnt_fil
+  {schema}.etq_mcr_cnt_fil -- Estoque filial, etq_mcr -- Estoque do depósito
+
 where
-  cd_empgcb=21
-  and cd_mcr IN (4854772,4856112,4856120,4856139,4856147,4856155,4856163,4924754,4947525,4947533,4953940,4954050,4960386)
+  cd_empgcb={empresa}
+  and cd_fil in ({filiais})
+  and sku = {sku}

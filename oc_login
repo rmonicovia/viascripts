@@ -8,12 +8,15 @@ def _load_configs():
     import os
     filename = os.path.join(os.environ['HOME'], '.config', 'oc', 'config.yml')
 
+    if not os.path.exists(filename):
+        raise Exception(f'Config file "{filename}" not found')
+
     with open(filename) as file:
         import yaml
         return yaml.safe_load(file)
 
 
-def parse_command_line():
+def parse_command_line(default_profile):
     '''
     Reference: https://docs.python.org/3/library/argparse.html
     '''
@@ -21,31 +24,11 @@ def parse_command_line():
 
     parser = ArgumentParser(description='Openshift login script')
 
-    configs = _load_configs()
-
     parser.add_argument(
-            '--host',
-            '-ho',
-            default=configs['host'],
-            help='Openshift host to connect to')
-
-    parser.add_argument(
-            '--port',
+            '--profile',
             '-p',
-            default=configs['port'],
-            help='Host port')
-
-    parser.add_argument(
-            '--username',
-            '-u',
-            default=configs['username'],
-            help='Openshift username')
-
-    parser.add_argument(
-            '--password',
-            '-pwd',
-            default=configs['password'],
-            help='Openshift password')
+            default=default_profile,
+            help=f'Profile to use to connect (default: {default_profile})')
 
     parser.add_argument(
             '--echo',
@@ -57,31 +40,35 @@ def parse_command_line():
     return parser.parse_args()
 
 
-def error(message, status=1):
-    print(message)
-    exit(1)
-
-
 def main():
     import shutil
     if not shutil.which('oc'):
-        error('"oc" command not found, exiting...')
+        raise Exception('"oc" command not found, exiting...')
 
     global args
 
-    args = parse_command_line()
+    config_file = _load_configs()
+
+    args = parse_command_line(config_file.get('default', 'hlg'))
 
     logger_wrapper.configure(args.verbosity)
     global logger
     logger = logger_wrapper.get(__name__)
 
-    command = 'oc login' \
-        f' --server=https://{args.host}:{args.port}' \
-        ' --insecure-skip-tls-verify' \
-        f' --username {args.username}' \
-        f' --password {args.password}'.split(' ')
+    if args.profile not in config_file:
+        raise Exception(f'Profile "{args.profile}" not found in config file')
 
-    logger.info(f'Running "{command}"')
+    print(f'Logging with profile "{args.profile}"')
+
+    configs = config_file[args.profile]
+
+    command = 'oc login' \
+        ' --server=https://{host}:{port}' \
+        ' --insecure-skip-tls-verify' \
+        ' --username {username}' \
+        ' --password {password}'.format(**configs).split(' ')
+
+    logger.info(f'Running "{" ".join(command)}"')
 
     if args.echo:
         print(' '.join(command))

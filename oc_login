@@ -1,39 +1,65 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from subprocess import run, PIPE
+from subprocess import run
+import logger_wrapper
+
+
+def _load_configs():
+    import os
+    filename = os.path.join(os.environ['HOME'], '.config', 'oc', 'config.yml')
+
+    with open(filename) as file:
+        import yaml
+        return yaml.safe_load(file)
 
 
 def parse_command_line():
     '''
     Reference: https://docs.python.org/3/library/argparse.html
     '''
-    from argparse import ArgumentParser, FileType
+    from argparse import ArgumentParser
 
     parser = ArgumentParser(description='Openshift login script')
 
-    parser.add_argument('-v',
-                        '--version',
-                        choices=[3, 4],
-                        required=True,
-                        type=int,
-                        help='Version of open shift to log in')
+    configs = _load_configs()
+
+    parser.add_argument(
+            '--host',
+            '-ho',
+            default=configs['host'],
+            help='Openshift host to connect to')
+
+    parser.add_argument(
+            '--port',
+            '-p',
+            default=configs['port'],
+            help='Host port')
+
+    parser.add_argument(
+            '--username',
+            '-u',
+            default=configs['username'],
+            help='Openshift username')
+
+    parser.add_argument(
+            '--password',
+            '-pwd',
+            default=configs['password'],
+            help='Openshift password')
+
+    parser.add_argument(
+            '--echo',
+            action='store_true',
+            help='Just echo the command to be executed')
+
+    logger_wrapper.make_verbosity_argument(parser)
 
     return parser.parse_args()
 
 
-def error(message, exit_code=1):
-    global logger
-
+def error(message, status=1):
     print(message)
-
-    exit(exit_code)
-
-
-def login_openshift(server):
-    run(
-        f'oc login --server={server} --username=4960000723 --password=MeR!/GMV --insecure-skip-tls-verify=true'.split(' '),
-        stdin=PIPE,
-        stdout=PIPE)
+    exit(1)
 
 
 def main():
@@ -45,12 +71,22 @@ def main():
 
     args = parse_command_line()
 
-    oc_server = {
-        3: 'https://vv-shift-eqx.dc.nova:443',
-        4: 'https://api.ops-eqx.viavarejo.com.br:6443',
-    }
+    logger_wrapper.configure(args.verbosity)
+    global logger
+    logger = logger_wrapper.get(__name__)
 
-    login_openshift(oc_server[args.version])
+    command = 'oc login' \
+        f' --server=https://{args.host}:{args.port}' \
+        ' --insecure-skip-tls-verify' \
+        f' --username {args.username}' \
+        f' --password {args.password}'.split(' ')
+
+    logger.info(f'Running "{command}"')
+
+    if args.echo:
+        print(' '.join(command))
+    else:
+        run(command)
 
     return 0
 

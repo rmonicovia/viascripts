@@ -1,0 +1,60 @@
+#!/usr/bin/bash
+
+help() {
+    cat << EOF
+Uso:
+    $(basename $0) <filtro>
+
+"filtro" é usado para determinar de quais PODs os logs serão baixados
+EOF
+
+    exit ${1:0}
+}
+
+log() {
+    [ -n "$debug" ] && echo $@
+}
+
+erro() {
+    status=$1
+    shift
+
+    echo "Erro: " $@
+    echo
+    exit $status
+}
+
+[ $# -eq 0 ] && {
+    erro "filtro não especificado"
+}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        "--help" | "-h")
+            help
+        ;;
+
+        "--debug")
+            debug=1
+            shift
+        ;;
+
+        *)
+            filtro="$1"
+            shift
+        ;;
+    esac
+done
+
+log "Filtrando pods por: \"$filtro\""
+
+pods=($(oc get pods | grep "$filtro" | cut -d " " -f 1))
+
+echo "${#pods} pods encontrados"
+echo
+
+for pod in ${pods[@]}; do
+    echo "Baixando logs de \"$pod\"..."
+    oc logs $pod > $pod.log
+done
+

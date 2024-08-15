@@ -1,0 +1,63 @@
+#!/usr/bin/python3
+
+from argparse_decorations import RootCommand, Argument, parse_and_run
+import os
+import sys
+
+
+_ENVIRONMENTS_DIR = os.path.join(os.environ['HOME'], 'environments')
+
+
+@RootCommand()
+@Argument('pod_name', help='Name of the pod, from "oc get pods"')
+@Argument('environment_name', help='Name of environment file')
+@Argument('--overwrite', action='store_true', help='Overwrite existing files')
+@Argument('--verbose', action='store_true', help='Verbosity level, up to 3 '
+          'v\'s')
+@Argument('--prepend-export', action='store_true',
+          help='Prepend a literal "export" before declarations')
+def root_command(pod_name, environment_name, overwrite, verbose,
+                 prepend_export):
+    import shutil
+    if not shutil.which('oc'):
+        print('"oc" (openshift cli) command not found in PATH, aborting')
+        sys.exit(1)
+
+    environment_file = os.path.join(_ENVIRONMENTS_DIR, f'{environment_name}.env')
+
+    if not overwrite and os.path.exists(environment_file):
+        print(f'Environment file already exists at "{environment_file}", ' +
+              'aborting')
+        sys.exit(1)
+
+    import subprocess
+
+    command = f'oc exec -t {pod_name} -- /bin/sh -c env'.split(' ')
+
+    process = subprocess.run(command, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+
+    system_variables_file_name = os.path.join(_ENVIRONMENTS_DIR,
+                                              'system_variables.regex')
+    with open(system_variables_file_name) as file:
+        system_variables_regex = file.read().strip()
+
+    import re
+    with open(environment_file, 'w') as file:
+        for declaration in process.stdout.decode().split('\n'):
+            if declaration == '':
+                continue
+
+            var, value = declaration.split('=')
+
+            if not re.match(system_variables_regex, declaration):
+                if prepend_export:
+                    file.write('export ')
+
+                file.write(var)
+                file.write('="')
+                file.write(value)
+                file.write('"\n')
+
+
+parse_and_run()

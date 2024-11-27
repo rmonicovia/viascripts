@@ -7,7 +7,7 @@ import os
 
 
 '''
-Arquivo de configuração:
+Arquivo de configuração ($HOME/.config/viatoken/config.yml):
 
 perfis:
   monico:
@@ -73,10 +73,10 @@ def _parse_command_line():
         description='Gera um token para o vendedor online')
 
     parser.add_argument('-p', '--profile', help='Perfil que será usado para logar no Via+')
-    # parser.add_argument('-l', '--list', help='Apenas lista os perfis disponíveis')
+    parser.add_argument('-l', '--list', action='store_true', help='Apenas lista os perfis disponíveis')
     parser.add_argument('-u', '--url', help='URL onde a token será gerado')
     parser.add_argument('-e', '--environment', help='Seleciona o ambiente onde o token é gerado')
-    parser.add_argument('-c', '--clipboard', help='Salva o token para a área de transferência')
+    parser.add_argument('-c', '--clipboard', action='store_true', help='Salva o token para a área de transferência')
     parser.add_argument('--password', help='Override profile password')
 
     # TODO
@@ -198,9 +198,10 @@ class GeracaoTokenException(Exception):
 
 PRD_URL = 'http://api-jornada.casasbahia.net/uaa/oauth/token'
 
-def generate(empresaFuncionario, empresaFilial, filial, bandeira, username, password, url=PRD_URL):
+def generate(empresaFuncionario, empresaFilial, filial, bandeira, scope, grant_type, canalVenda, username, password, url=PRD_URL):
     request_args = _makeRequestArgs(empresaFuncionario, empresaFilial, filial, bandeira, username, password, url)
 
+    # print(request_args)
     with requests.post(**request_args) as response:
         if response.status_code != 200:
             raise GeracaoTokenException(response)
@@ -208,6 +209,44 @@ def generate(empresaFuncionario, empresaFilial, filial, bandeira, username, pass
         response_body = response.json()
 
     return response_body['access_token']
+
+
+def _print_profile_list(perfis):
+    bandeira_codigo_to_nome = {
+            1: 'CB',
+            2: 'PF',
+    }
+
+    # breakpoint()
+    maior_nome = len(max([ nome for nome in perfis.keys() ], key=len))
+    maior_ambiente = len(max([ _string_ambientes(dados) for dados in perfis.values() ], key=len))
+
+    for nome, dados in perfis.items():
+        bandeira = bandeira_codigo_to_nome[dados['bandeira']]
+
+        alinhamento_nome = ' ' * (maior_nome - len(nome))
+
+        ambientes = _string_ambientes(dados)
+        alinhamento_ambiente = ' ' * (maior_ambiente - len(ambientes))
+
+        print(f'[{bandeira}, {ambientes}{alinhamento_ambiente}] {nome}{alinhamento_nome} :  ' + '{empresaFuncionario} {filial} {username}'.format(**dados))
+
+
+def _string_ambientes(dados):
+    dado = dados.get('ambientes', [])
+
+    if len(dado) == 0:
+        return '<all>'
+
+    match dado[0]:
+        case str():
+            return ','.join(dado)
+        
+        case dict():
+            return ','.join(dado[0].keys())
+
+        case _:
+            return '???'
 
 
 def _main():
@@ -219,6 +258,10 @@ def _main():
         import yaml
 
         configs = yaml.safe_load(f)
+
+    if args.list:
+        _print_profile_list(configs['perfis'])
+        return
 
     request_args = _getRequestArgs(args, configs)
 

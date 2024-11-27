@@ -1,0 +1,80 @@
+#!/bin/env python3.10
+
+from argparse import ArgumentParser
+from sys import exit
+
+
+def main():
+    args = parse_command_line()
+
+    results = get_estoque(empresa=args.empresa, filiais=[args.filial], skus=[args.sku])
+
+    return 0
+
+
+def parse_command_line():
+    parser = ArgumentParser(
+        description='Devolve as informações de estoque do db2 para um SKU e filial')
+
+    parser.add_argument('empresa')
+    parser.add_argument('skus', type=skus_e_filiais)
+
+    return parser.parse_args()
+
+
+# sku,sku,sku@filial,filial,filial+sku,sku,sku@filial,filial,filial
+def skus_e_filiais(raw: str) -> list:
+    # TODO Checar formato do parâmetro para melhores mensagens de erro
+    raw_skus_com_filiais_list = raw.split('+')
+
+    skus_com
+    for skus_com_filiais in skus_com_filiais_list:
+        divider_index = skus_com_filiais.find('@')
+
+        skus = skus_com_filiais[:divider_index]
+        filiais = skus_com_filiais[divider_index+1:]
+
+        for sku in skus:
+
+
+
+def get_estoque(**args):
+    host = "10.229.18.53"
+    port = 60008
+    database = "dbprep"
+    schema = "NSVP"
+    user = "usrnsvbp"
+    password = "ibm00via"
+ 
+    connection_string = f'HOSTNAME={host};PORT={port};DATABASE={database};PROTOCOL=TCPIP;UID={user};PWD={password};'
+ 
+    connection = ibm_db.connect(connection_string, '', '')
+
+    
+    params = {
+            'empresa': 21,
+            'filiais': filiais,
+            'sku': sku,
+            }
+    with open('queries/pontos_atendimento_por_filial.sql') as query_file:
+        query_filiais_atendidas = query_file.readlines().format(**params)
+
+    stmt_filiais_atendidas = ibm_db.exec_immediate(connection, query_filiais_atendidas)
+
+    filiais_atendidas = set()
+
+    while (filial := ibm_db.fetch_assoc(mcr_stmt)):
+        filiais.add(filial['FILIAL'])
+        filiais.add(filial['FILIAL_ALTERNATIVO'])
+
+    
+    with open('queries/estoque_por_sku_e_filial.sql') as query_file:
+        stmt_estoque = query_file.readlines().format(
+
+
+
+if __name__ == '__main__':
+    returncode = main() or 0
+
+    exit(returncode)
+

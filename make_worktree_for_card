@@ -1,0 +1,26 @@
+#!/usr/bin/bash
+
+
+# TODO Mover para um script em Python
+# TODO Receber via --kind com default para "task"
+if [ "$1" = "-h" -o "$1" = "--help" -o "$#" -eq 0 ]; then
+    cat << EOF
+Uso: <kind> <card>
+
+Cria, localmente, uma branch com nome "<kind>/<card>" e uma worktree para essa branch na pasta "../<card>"
+A branch é criada a partir da branch ativa.
+
+kind: Qualquer valor. Normalmente "task" ou "feature".
+card: Número do card no Azure (ex: 14569)
+EOF
+    exit 0
+fi
+
+kind=$1
+card=$2
+
+branchname=${kind}/${card}
+folder=../${card}
+
+git branch -c $branchname
+git worktree add $folder $branchname

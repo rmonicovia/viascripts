@@ -1,0 +1,24 @@
+mongo:
+    user: "svc_viamais"
+    password: "Ygy89xd*<jpVc53TXc845Ka"
+    host: "mdbp-via-1.dc.nova:27017,mdbp-via-2.dc.nova:27017,mdbp-via-3.dc.nova:27017,mdbp-via-4.dc.nova:27017,mdbp-via-5.dc.nova:27017"
+    params: "?authSource=admin&authMechanism=SCRAM-SHA-1"
+
+DB2:
+    host: "10.229.18.53"
+    port: 60008
+    database: "dbprep"
+    schema: "NSVP"
+    user: "usrnsvbp"
+    password: "ibm00via"
+
+DB2_secundario:
+    host: "10.0.10.39"
+    port: 50000
+    database: "DBPMVS"
+    schema: "PRDBAT"
+    user: "USER"
+    password: "PASS"
+
+solr:
+  host: http://solrmultileitura.dc.nova:8983/solr/catalogo

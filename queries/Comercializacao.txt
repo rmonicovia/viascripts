@@ -107,11 +107,12 @@ SELECT A.VR_PCOMCR
             ,B.TS_HPMALT         DESC
     FETCH FIRST 1 ROW ONLY)
 WITH UR
- 
+
+
 /*CONJUNTO*/
 
 /*BUSCA COMERCIALIZAÇAO VIGENTE
- 
+
 Primeiro, buscar comercialização por filial*/
 
   SELECT *

@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+
+from argparse_decorations import RootCommand, Argument, parse_and_run
+import re
+import sys
+
+
+@RootCommand()
+@Argument('--header-lines', '-e', type=int, help='Total headers lines to skip')
+@Argument('--footer-lines', '-f', type=int, help='Total footer lines to skip')
+@Argument('--regex', '-r', help='Regex to cut line')
+def root_command_handler(header_lines, footer_lines, regex):
+    # import subprocess
+    # p = subprocess.run('oc projects'.split(' '), stdout=subprocess.PIPE)
+
+    # stdin = p.stdout.decode().split('\n')
+
+    stdin = sys.stdin.read().split('\n')
+
+    stdin = stdin[header_lines:-footer_lines-1]
+
+    for line in stdin:
+        match = re.match(regex, line)
+
+        if match:
+            print(match.groups()[0])
+        else:
+            sys.stderr.write(f'Error: \"{line}\" not in regex\n')
+
+
+if __name__ == '__main__':
+    parse_and_run()

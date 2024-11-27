@@ -1,0 +1,39 @@
+#!/usr/bin/bash
+
+connection_folder=~/mongo_connection_strings
+
+[ "$1" == "-h" -o "$1" == "--help" ] && {
+    cat << EOF
+Uso: $(basename $0) <profile> <collection> <query>
+
+Onde:
+
+profile       A connection string file in $connection_folder
+collection    Mongo collection
+query         Mongo query
+EOF
+    exit
+}
+
+[ "$1" == "ls" -o "$1" == "list" ] && {
+    cd "$connection_folder"
+    find -type f | cut -c 3-
+    exit
+}
+
+profile="$1"
+connection_string="$(cat "$connection_folder/$profile")"
+
+[ "$2" == "ls" -o "$2" == "list" ] && {
+    command="EJSON.stringify(db.getCollectionNames())"
+} || {
+    collection="$2"
+    query="$3"
+    command="JSON.stringify(db.getCollection('$collection').$query.toArray())"
+}
+
+mongosh \
+    "$connection_string" \
+    --eval "$command" \
+    | remove_colors \
+    | jq -M .

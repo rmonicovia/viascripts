@@ -1,0 +1,64 @@
+# vim: filetype=bash
+
+oc-getapis() {
+    oc get pods |
+    grep -i -P -o '(?<=(vv-))[a-z-]+(?=-[0-9]+-[a-z0-9_-]+ +[0-9]+/[0-9]+ +Running +[0-9]+)' |
+    uniq
+}
+
+oc-getpods () {
+	oc get pods |
+    grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox} -i -E 'vv-'$1'-[0-9]+-[a-z0-9]+ +[0-9]+/[0-9]+ +Running +[0-9]+' |
+    cut -d \  -f 1
+}
+
+green=$(tput setaf 2)$(tput bold)
+red=$(tput setaf 1)$(tput bold)
+reset="\e[m"
+
+_step_start() {
+    echo -n "[  ]  $1"
+}
+
+# _step_end <0|1> <mensagem>
+_step_end() {
+    if [ $1 -eq 0 ]; then
+        echo -e "\\r[${green}OK${reset}]  $2...."
+    else
+        echo -e "\\r[${red}ER${reset}]  $2...."
+    fi
+}
+
+oc-getpodslogs() {
+    if [ xx"$1" = "xx" ]; then
+        echo "A API name is required!"
+        return 1
+    fi
+
+    pods=($(oc get pods | grep -iE "$1-[0-9]+-[0-9a-z]+ +[0-9}+/[0-9]+ +Running"  | cut -d \  -f 1))
+
+    logfile="$1-$(date '+%Y-%m-%d@%H-%M-%S').log.gz"
+    for pod in ${pods[@]}; do
+        stepname="Getting logs for $pod"
+        _step_start "$stepname"
+
+        # echo | gzip -c >> $logfile 
+        # echo | gzip -c >> $logfile
+        # echo | gzip -c >> $logfile
+        # echo "Logs of $pod" | gzip -c >> $logfile
+        # echo | gzip -c >> $logfile
+
+        oc logs --all-containers $pod | gzip -c >> $logfile
+
+        _step_end $? "$stepname"
+    done
+}
+
+
+# Get all logs from deployment
+oc-all-logs() {
+  deployment="$1"
+
+  oc logs -l deploymentconfig=$1 --all-containers=true --tail=-1 --prefix=true | gzip > $1.logs.gz
+}
+

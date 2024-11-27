@@ -1,0 +1,102 @@
+#!/usr/bin/bash
+
+help() {
+    cat << EOF
+Uso:
+    $(basename $0) [--debug] [--quiet] [--dry-run] --filter <filtro> --command <comando>
+
+"--debug" ativa as mensagens de log
+"--quiet" não emite mensagens
+"--dry-run" não roda os comandos, apenas os printa na tela
+"--filter" (-f) é usado para determinar de quais PODs os logs serão baixados
+"--command" (-c) será executado para cada POD, poderá ter uma quantidade arbitrária de valores. DEVE SER o último parâmetro informado, caso contrário os parâmetros posteriores serão parte do comando!
+"\$pod" será substituído pelo nome do pod. Lembrando \$pod deve escapado ao passar via CLI ficando \\\$pod ou passado entre '' ('\$pod')
+
+Exemplo:
+
+# Salva os logs de todos os pods em arquivos com os nomes dos pods:
+$(basename $0) --filter vv-estoque --command oc logs \\\$pod \> \\\$pod.log
+
+# Mesmo que o anterior, usando '':
+$(basename $0) --filter vv-estoque --command 'oc logs \$pod > \$pod.log'
+EOF
+
+    exit ${1:0}
+}
+
+log() {
+    [ -n "$debug" ] && echo $@
+}
+
+erro() {
+    status=$1
+    shift
+
+    echo "Erro: " $@
+    echo
+    exit $status
+}
+
+[ $# -eq 0 ] && {
+    erro "filtro não especificado"
+}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        "--help" | "-h")
+            help
+        ;;
+
+        "--debug")
+            debug=1
+            shift
+        ;;
+
+        "--quiet")
+            quiet=1
+            shift
+        ;;
+
+        "--dry-run")
+            dry_run=1
+            shift
+        ;;
+
+        "--command" | "-c")
+            shift
+            comando=$@
+            shift $#
+        ;;
+
+        "--filter" | "-f")
+            filtro="$2"
+            shift 2
+        ;;
+
+        *)
+            erro 1 "parâmetros extras: \"$@\""
+        ;;
+    esac
+done
+
+log "--debug ativado"
+[ -n "$quiet" ] && log "--quiet ativado"
+[ -n "$dry_run" ] && log "--dry_run ativado"
+log "Filtrando pods por: \"$filtro\""
+log "Comando: \"$comando\""
+
+pods=($(oc get pods | grep "$filtro" | cut -d " " -f 1))
+
+[ -z "$quiet" ] && {
+    echo "${#pods[@]} pods encontrados"
+    echo
+}
+
+[ -n "$dry_run" ] && comando=(echo ${comando[@]@Q})
+
+for pod in ${pods[@]}; do
+    [ -z "$quiet" ] && echo "Processando pod \"$pod\"..."
+
+    eval ${comando[@]}
+done
+

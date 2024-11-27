@@ -1,0 +1,9 @@
+#!/bin/bash
+
+docker run -it \
+    --workdir /mnt \
+    --mount type=bind,source=/home/rmonico/repos/vitrine,destination=/mnt \
+    --mount type=bind,source=/home/rmonico/.m2,destination=/root/.m2 \
+    maven:3-jdk-11 \
+    "$@"
+

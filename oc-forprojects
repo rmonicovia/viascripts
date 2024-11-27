@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+
+[ "$1" == '-h' -o "$1" == '--help' ] && {
+  cat << EOF
+Usage: $(basename $0) <command>
+
+Run an arbitrary command for each namespace on openshift using "oc" command
+EOF
+
+  exit 0
+}
+
+[ $# -eq 0 ] && {
+  echo "No command specified, exiting"
+
+  exit 1
+}
+
+for project in $(oc projects | cutout -e 2 -f 2 -r '^  [ \*] ([a-z0-9\-]+) - '); do
+    echo Project: $project
+    echo
+    echo oc --namespace=$project $@
+done

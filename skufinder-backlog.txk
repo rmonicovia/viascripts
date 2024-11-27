@@ -1,0 +1,103 @@
+:: skufinder
+; Este arquivo é um backlog do binvia/skufinder.txk. Lá estão as coisas que já foram planejadas.
+
+- Mostrar DT_MOD
+
+- Verificações
+  - Existência do SKU (parametros: sku)
+  ; DB2(mcr + AGP_MCR_ANC) x Mongo(produto) x Solr(sku) x Catálogo x Vitrine
+
+  - Preço (parametros: sku + filial)
+  ; DB2 x Mongo(precificacao) x Solr(filial_preco_<filial>) x Catálogo x Vitrine
+
+  - Estoque (parametros: sku + filial)
+  ; DB2 x Mongo(estoque) x Solr(filial_estoque_<filial>) x Catálogo x Vitrine
+
+  - Sincronização Completa (sku)
+  ; Mongo(produto)
+
+- Listar o que precisa ser checado para a verificação de preço #importante
+; [2022-09-13 21:14]  Solicitado hoje de manhã na WarRoom - Sync
+
+- [2022-09-14 14:30]  Pegar as queries que o Coelho mandou na warrom #rapido
+; [2022-09-16 14:25]  Acho que já fiz, mas é bom confirmar
+
+- Subir skufinder para a sandbox #importante #impedimento
+; Copiar, a sandbox não deve ter um usuário no git
+; Está dando problema no script devido à versão do python
+; [2022-09-16 14:04]  Não estou conseguindo rodar, pois não tem acesso ao mongo de produção
+
+- [2022-09-15 12:12]  Pedir acesso ao dicionário de dados ao Coelho
+
+- Descobrir quais as strategies mudam sincronizacaoCompleta para true #sem_jira
+; Vai nos dar visibilidade de onde os processos terminam
+
+- Levantar quais mercadorias que estão no DB2 e não estão no mongo e vice-versa
+
+- Algumas queries no DB2 e outras coisas interessantes:
+; http://confluence.viavarejo.com.br/pages/viewpage.action?pageId=128464726
+
+- Pseudo código do processo de sincronização
+;;
+[ ] GET no Vitrine
+[ ] GET no Catalogo, com a url que o Vitrine monta
+[X] Mongo (DB catalogo, collection produtos)
+[ ] Solr (Core Catalogo)
+[X] DB2, tabela NSVP.MCR (mercadorias)
+[X] DB2, tabela nsvp.agp_mcr_anc (conjuntos)
+;;
+
+- Fazer pool da mcr e ler como fila
+;;
+select
+  cd_mcr as sku
+from
+  nsvp.mcr
+where
+  dt_mod >= current timestamp - 1 hour
+;;
+
+- Query no Solr
+;;
+# pip install --user solrpy
+
+import solr
+
+s = solr.SolrConnection('http://solrmultileitura.dc.nova:8983/solr/catalogo')
+
+response = s.query('sku:5123810')
+
+for k, v in s.query('sku:5123810', fields=['sku', 'filial_preco_*_1000', 'filial_estoque_*_1000', 'filial_comercializacao_padrao_1000']).results[0].items():
+  print(f'{k}: {v}')
+
+# Printa:
+# 
+# sku: 5123810
+# filial_preco_padrao_1000: 1999.0
+# filial_preco_saldo_1000: 1599.2
+# filial_preco_mostruario_1000: 1599.2
+# filial_estoque_padrao_1000: 0
+# filial_estoque_saldo_1000: 0
+# filial_estoque_mostruario_1000: 0
+# filial_estoque_reservado_1000: 0
+# filial_estoque_cd_1000: True
+# filial_estoque_pendente_1000: True
+# filial_comercializacao_padrao_1000: False
+# score: 10.255883
+
+# Mais em: https://pypi.org/project/solrpy/
+;;
+
+- Melhorar tabulação
+; https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
+
+- Query para retornar os dados de estoque/precificação por sku e filial
+;;
+db.getCollection('estoque').find({ $or: [
+{ "_id.sku": 4775635, "_id.filial": 1049 },
+{ "_id.sku": 4807340, "_id.filial": 1052 },
+{ "_id.sku": 4991265, "_id.filial": 1125 },
+{ "_id.sku": 5159326, "_id.filial": 1069 },
+{ "_id.sku": 5159334, "_id.filial": 1327 },
+] })
+;;

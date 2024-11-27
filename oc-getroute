@@ -1,0 +1,1 @@
+oc get routes $1 -o json | jq -Mr .spec.host

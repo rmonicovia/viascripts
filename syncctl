@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+
+from argparse_decorations import RootCommand, Command, Argument, ExtraArgs, \
+    make_verbosity_argument, parse_and_run
+import sys
+
+_HOSTS = {
+        'prd': 'https://figitalsync-prd.grupocasasbahia.com.br',
+        'hlg': 'https://figitalsync-hlg.via.com.br',
+        'stg': 'https://figitalsync-stg.via.com.br',
+        }
+
+_SYNCS = ['MerchandisePriceProducer',
+          'ProductSetChildEQVProducer',
+          'ProductSetPriceProducer',
+          'MerchandiseProducer',
+          'ProductSetProducer',
+          'BranchesProducer',
+          ]
+
+
+@RootCommand()
+@Argument('--environment', '-e', default='hlg', choices=_HOSTS.keys())
+def root_command(environment):
+    print('Specify a command')
+
+
+@Command('list-syncs')
+def list_SYNCS(environment):
+    for sync in _SYNCS:
+        print(sync)
+
+
+@Command('start')
+@Argument('sync', choices=_SYNCS)
+@ExtraArgs('logger')
+def start(environment, sync, logger):
+    _request(environment, sync, 'resume', 'post', logger)
+
+    print(f'{sync}: solicitação de inicialização enviada')
+
+
+@Command('stop')
+@Argument('sync', choices=_SYNCS)
+@ExtraArgs('logger')
+def stop(environment, sync, logger):
+    _request(environment, sync, 'pause', 'post', logger)
+
+    print(f'{sync}: solicitação de parada enviada')
+
+
+@Command('status')
+@Argument('--full', '-f', action='store_true')
+@Argument('sync', choices=_SYNCS + ['all'])
+@ExtraArgs('logger')
+def status(environment, full, sync, logger):
+    syncs = _SYNCS if sync == 'all' else [sync]
+
+    for sync in syncs:
+        try:
+            response = _request(environment, sync, 'current', 'get', logger)
+        except Exception as e:
+            print(f'{sync}.error: true')
+            logger.error(e) if logger else None
+            continue
+
+        if not full:
+            paused = response.json()['paused']
+            status = 'true' if paused else 'false'
+            message = f'{sync}.paused: {status}'
+            print(message)
+
+            continue
+
+        import json
+        formatted = json.dumps(response.json(), indent=2)
+
+        from pygments import highlight, lexers, formatters
+
+        formatter = formatters.TerminalFormatter()
+        colorized = highlight(formatted, lexers.JsonLexer(), formatter)
+
+        print(colorized)
+
+
+def _request(environment, sync, command, method, logger):
+    host = _HOSTS[environment]
+
+    url = f'{host}/PricingProducer/{sync}/{command}'
+
+    logger.debug(url) if logger else None
+
+    import requests
+
+    response = requests.request(url=url, method=method)
+
+    if not response.ok:
+        logger.error(f'Error requesting. Status: {response.status_code}') if logger else None
+        logger.error('Body: ' + response.content.decode()) if logger else None
+        raise Exception(f'Error requesting on "{url}"')
+
+    return response
+
+
+make_verbosity_argument()
+
+
+if __name__ == '__main__':
+    sys.exit(parse_and_run())

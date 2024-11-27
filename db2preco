@@ -1,0 +1,56 @@
+#!/bin/env python3.10
+
+from argparse import ArgumentParser
+from sys import exit
+
+
+def main():
+    args = parse_command_line()
+
+    
+
+    return 0
+
+
+def parse_command_line():
+    parser = ArgumentParser(
+        description='Devolve as informações de preço do db2 para um SKU')
+
+    parser.add_argument('filial')
+    parser.add_argument('sku')
+    # parser.add_argument('filiais',
+    #                     type=lista_separada_por_virgula,
+    #                     help='Lista de filiais, separadas por vírgula')
+
+    # parser.add_argument('skus',
+    #                     type=lista_separada_por_virgula,
+    #                     help='Lista de SKUs, separados por vírgula')
+
+    return parser.parse_args()
+
+
+def lista_separada_por_virgula(raw: str) -> list:
+    return raw.split(',')
+
+
+def make_query(skus):
+    return f'sku:({" OR ".join(skus)})'
+
+
+def field_list(filiais):
+    fields = list()
+
+    fields.append('sku')
+
+    for filial in filiais:
+        fields.append(f'filial_preco_*_{filial}')
+        fields.append(f'filial_estoque_*_{filial}')
+        fields.append(f'filial_comercializacao_*_{filial}')
+
+    return fields
+
+
+if __name__ == '__main__':
+    returncode = main() or 0
+
+    exit(returncode)

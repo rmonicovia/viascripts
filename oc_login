@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from subprocess import run
+import base64
 import logger_wrapper
+from subprocess import run
 
 
 def _load_configs():
@@ -58,9 +59,9 @@ def main():
     if args.profile not in config_file:
         raise Exception(f'Profile "{args.profile}" not found in config file')
 
-    print(f'Logging with profile "{args.profile}"')
-
     configs = config_file[args.profile]
+    configs['password'] = base64.decodebytes(configs['password'].encode()) \
+        .decode()
 
     command = 'oc login' \
         ' --server=https://{host}:{port}' \
@@ -74,6 +75,8 @@ def main():
         print(' '.join(command))
     else:
         run(command)
+        print()
+        print(f'Logged with profile "{args.profile}"')
 
     return 0
 

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+[[ "$1" =~ ^(-h)|(--help)$ ]] && {
+  echo help
+  exit
+}
+
+[ $# -eq 0 ] && files=(/dev/stdin) || files=($@)
+
+for file in ${files[@]}; do
+  echo Processing $file.... > /dev/stderr
+
+  cat $file | tail -n +14 | jq -r '.stack_trace' | grep -v null
+done

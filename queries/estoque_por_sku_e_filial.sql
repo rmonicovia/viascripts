@@ -1,25 +1,30 @@
+-- fonte: br.com.viavarejo.domain.repository.db2.impl.EstoqueDb2RepositoryImpl#obterAtualizacoes
 -- Não leva em conta os depósitos alternativos
 select
-  cd_empgcb as empresa,
-  cd_fil as filial,
-  cd_mcr as sku,
-  qt_emcfil_cnt as contabil,
-  qt_emcfil_inv_cnt as contabil_inventario,
-  qt_emcfil_dsp as disponivel,
-  qt_emcfil_tsi_ent as transito_recebido,
-  qt_emcfil_tsi_sai as transito_nao_confirmado,
-  qt_emcfil_sdo as saldo,
-  qt_emcfil_rsr_sdo as reservado,
-  qt_emcfil_nov as padrao,
-  qt_emcfil_suc as sucata,
-  qt_emcfil_qbd as quebrada,
-  qt_emcfil_trc_for as troca_fora,
-  qt_emcfil_mos as mostruario,
-  qt_emcfil_rsr_vnd as reservado_venda
+    CD_EMPGCB as empresa,
+    CD_FIL as filial,
+    CD_MCR as sku,
+    QT_EMCFIL_CNT as contabil,
+    QT_EMCFIL_INV_CNT as contabil_inventario,
+    QT_EMCFIL_DSP as disponivel,
+    QT_EMCFIL_TSI_ENT as transito_recebido,
+    QT_EMCFIL_TSI_SAI as transito_nao_confirmado,
+    QT_EMCFIL_SDO as saldo,
+    QT_EMCFIL_RSR_SDO as reservado,
+    QT_EMCFIL_NOV as padrao,
+    QT_EMCFIL_SUC as sucata,
+    QT_EMCFIL_QBD as quebrado,
+    QT_EMCFIL_TRC_FOR as troca_fora,
+    QT_EMCFIL_MOS as mostruario,
+    QT_EMCFIL_RSR_VND as reservado_venda
 from
-  {schema}.etq_mcr_cnt_fil -- Estoque filial, etq_mcr -- Estoque do depósito
-
+    ETQ_MCR_CNT_FIL
 where
-  cd_empgcb={empresa}
-  and cd_fil in ({filiais})
-  and sku = {sku}
+    CD_EMPGCB = 21
+    and CD_FIL = :filial
+    and DT_MOD = :dt_mod
+order by
+    CD_EMPGCB,
+    CD_FIL,
+    CD_MCR
+

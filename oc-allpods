@@ -1,0 +1,18 @@
+#!/usr/bin/bash
+
+[ "$1" == '-h' -o "$1" == '--help' ] && {
+  cat << EOF
+Usage: $(basename $0)
+
+List all pods on all namespaces
+EOF
+  exit 0
+}
+
+for namespace in $(oc projects -q); do
+  oc get pods \
+    --namespace=$namespace \
+    --no-headers=true \
+    --field-selector=status.phase=Running \
+    --output custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name"
+done

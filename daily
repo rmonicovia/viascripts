@@ -1,0 +1,17 @@
+#!/usr/bin/bash
+
+timestamp=$(date '+%Y-%m-%d')
+
+daily=~/status/daily/daily--$timestamp.txk
+
+[ ! -e $daily ] && {
+  cat << EOF > $daily
+:: Daily $(date '+%d/%b/%y (%A)')
+
+- 
+EOF
+}
+
+which xclip &> /dev/null && { echo $daily | xclip; echo "Daily file name copied into clipboard"; }
+
+echo "Daily file created at \"$daily\""

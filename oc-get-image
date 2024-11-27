@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+
+jq -rC '.spec.jobTemplate.spec.template.spec.containers.[].image'

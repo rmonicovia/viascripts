@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+
+# requires argparse_decorations, pyyaml
+from argparse_decorations import RootCommand, Argument, parse_and_run
+import logging
+import yaml
+
+
+@RootCommand()
+@Argument('--export', action='store_true', help='Inclui "export" antes da '
+          'declaração das variáveis')
+def run(export):
+    with open('kustomize-hlg.yaml') as file:
+        kustomize_generator = yaml.safe_load_all(file)
+
+        for document in kustomize_generator:
+            if document.get('kind', None) == 'ConfigMap':
+                data = document.get('data', None)
+                if not data:
+                    logging.warn('Configmap document found without "data" entry')
+                    continue
+
+                for variable, value in data.items():
+                    declaration = f'{variable}="{value}"'
+
+                    if export:
+                        declaration = 'export ' + declaration
+                    print(declaration)
+
+
+if __name__ == '__main__':
+    parse_and_run()

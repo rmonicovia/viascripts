@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -e
+
+_help() {
+    # TODO get command
+    cat << EOF
+Manipula funcionalidades do feature toggle (TODO)
+
+Uso:
+    "$(basename $0) [ --help ]
+    "$(basename $0) [ install | update ] --data <key=value> --secret <secret> --namespace <namespace> --project <project> [ --version ] <url>
+
+--help -h   Ajuda para listagem dos comandos
+
+install | update
+  --namespace -n    Em qual namespace será instalado
+  --project -p      Qual é o projeto e o prefixo que terá no serviço. Por exemplo: -p vendemais irá criar um vendemais-figital-feature-toggle-service
+  --secret -s       Informa uma chave e valor que será configurada como secret
+  --data -d         Informa uma chave e valor para ser configurado no ConfigMap
+  --version -v      Opcional. Se não passado irá pegar a última versão a partir da url
+  url               URL do consul
+EOF
+
+    exit "${1:-0}"
+}
+
+_error() {
+    [ "$#" -ne 2 ] && {
+        echo "'_error' must get 2 parameters!"
+        return -1
+    }
+
+    local message="$1" returncode="$2"
+
+    echo "Erro: $message" > /dev/stderr
+    return $returncode
+}
+
+_get_numeric_level() {
+    case "$1" in
+        "error") echo 0 ;;
+        "info") echo 1 ;;
+        "warn") echo 2 ;;
+        "debug") echo 3 ;;
+        *) return -1
+    esac
+}
+
+_check_level_validity() {
+    [ "$1" != "error" -a "$1" != "info" -a "$1" != "warn" -a "$1" != "debug" ] \
+        && _error "Invalid log level: \"$1\"" -1 \
+        || return 0
+}
+
+_log_level=debug
+_log_level=$(_get_numeric_level "$_log_level")
+
+_log() {
+    [ "$#" -lt 2 ] && {
+        echo "'_log' must get 2 parameters!"
+        return -1
+    }
+
+    local level_name="$1"
+    shift
+    local message="$@"
+
+    _check_level_validity "$level_name"
+    local level=$(_get_numeric_level "$level_name")
+
+    [ "$level" -le "$_log_level" ] \
+        && echo "[$level_name]  $message" > /dev/stderr \
+        || return 0
+}
+
+main() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            "-h" | "--help")
+                _help 0
+            ;;
+
+            "install" | "update")
+                [ -n "$command" ] && _error "Apenas um comando é permitido!" 1
+
+                local command="$1"
+                shift
+            ;;
+
+            "--namespace" | "-n")
+                local namespace="$2"
+                shift 2
+            ;;
+
+            "--project" | "-p")
+                local project="$2"
+                shift 2
+            ;;
+
+            "--secret" | "-s")
+                local secret="$2"
+                shift 2
+            ;;
+
+            "--data" | "-d")
+                local _entries="$2"
+                shift 2
+
+                local keys=() values=() _old_ifs="$IFS" _entry_sep=":"
+                IFS=','
+
+                for _entry in ${_entries[@]}; do
+                    _log debug Processing $_entry
+                    local _key="${_entry%%$_entry_sep*}"
+                    local _value="${_entry#*$_entry_sep}"
+
+                    _log debug Found $_key and $_value
+                    keys+=("$_key")
+                    values+=("$_value")
+                done
+
+                IFS="$_old_ifs"
+            ;;
+
+            "--version" | "-v")
+                local version="$2"
+                shift 2
+            ;;
+
+            *)
+                if [ -z "$url" ]; then
+                    local url="$1"
+                    shift
+                else
+                   _error "Parâmetro inválido: \"$1\"" 1
+                fi
+            ;;
+        esac
+    done
+
+    [ -z "$command" ] && _error "Informe um comando" 1
+    [ -z "$namespace" ] && _error "Informe o namespace" 1
+    [ -z "$project" ] && _error "Informe o projeto (--project)" 1
+    [ -z "$secret" ] && _error "Informe o secret" 1
+    [ -z "$keys" -o -z "$values" ] && _error "Informe os dados (--data)" 1
+    [ -z "$version" ] && _error "Informe a versao (--version)" 1
+    [ -z "$url" ] && _error "Informe a url" 1
+
+    _log debug "Running with:"
+    _log debug "  Command: '$command'"
+    _log debug "  Namespace: '$namespace'"
+    _log debug "  Project: '$project'"
+    _log debug "  Secret: '$secret'"
+    _log debug "  Chaves: '${keys[@]}'"
+    _log debug "  Valores: '${values[@]}'"
+    _log debug "  Version: '$version'"
+    _log debug "  URL: '$url'"
+
+    case "$command" in
+        "install") _do_install "$namespace" "$project" "$secret" "${keys[@]}" "${values[@]}" "$version" "$url" ;;
+        "update") _do_update "$namespace" "$project" "$secret" "${keys[@]}" "${values[@]}" "$version" "$url" ;;
+        *) _error "Command not implemented yet: '$command'" -1
+    esac
+}
+
+_do_install() {
+    local namespace="$1" project="$2" secret="$3" keys="$4" values=($5) version="$6" url="$7"
+
+    _log debug "Installing with:"
+    _log debug "  Namespace: '$namespace'"
+    _log debug "  Project: '$project'"
+    _log debug "  Secret: '$secret'"
+    _log debug "  Chaves: '${keys[@]}'"
+    _log debug "  Valores: '${values[@]}'"
+    _log debug "  Version: '$version'"
+    _log debug "  URL: '$url'"
+
+    echo TODO - Install
+}
+
+_do_update() {
+    local namespace="$1" project="$2" secret="$3" keys=($4) values=($5) version="$6" url="$7"
+
+    _log debug "Installing with:"
+    _log debug "  Namespace: '$namespace'"
+    _log debug "  Project: '$project'"
+    _log debug "  Secret: '$secret'"
+    _log debug "  Chaves: '${keys[@]}'"
+    _log debug "  Valores: '${values[@]}'"
+    _log debug "  Version: '$version'"
+    _log debug "  URL: '$url'"
+
+    echo TODO - Update
+}
+
+main "$@"

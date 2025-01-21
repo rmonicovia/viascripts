@@ -48,7 +48,11 @@ def root_command(pod_name, environment_name, overwrite, verbose,
 
     import re
     with open(environment_file, 'w') as file:
-        for declaration in process.stdout.decode().split('\n'):
+        stdout = process.stdout.decode()
+        lines = stdout.split('\n')
+        lines.sort()
+
+        for declaration in lines:
             if declaration == '':
                 continue
 

@@ -1,0 +1,141 @@
+#!/bin/bash
+
+_help() {
+    [ -n "$1" ] && {
+        echo "Erro: $1"
+        echo
+    } > /dev/stderr
+
+    # TODO Atualizar este help
+    cat << EOF
+Uso: $(basename $0) [-h | --help] [--jq -j jq_params] [--project -p project] [--version -v version] [--env -e environment] [-r --raw] [-v --verbose] environment
+
+Onde:
+
+environment     sit, hlg, stg, stress, pilot, prd. Usado para montar o nome do host apenas.
+--jq -j
+--project -p    Filtra nomes de projeto contendo a string
+--version -v    Filtra números de versão contendo a string
+--env -e        Filtra os deploys por ambiente
+--raw -r        Devolve o json retornado pelo curl
+--verbose -v    Mostra informações internas antes de rodar o curl
+EOF
+    exit $2
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        "-h" | "--help")
+            _help "" 0
+            ;;
+
+        "sit" | "hlg" | "stg" | "stress" | "pilot" | "prd")
+            environment="$1"
+            shift
+            ;;
+
+        "-j" | "--jq")
+            jq_params=($2)
+            shift 2
+            ;;
+
+        # TODO Entraram mais campos, generalizar
+        "-p" | "--project")
+            extra_filter+=' | select(.project.from_metadata // "" | match("'$2'"))'
+            shift 2
+            ;;
+
+        "-v" | "--version")
+            extra_filter+=' | select(.version // "" | match("'$2'") | values)'
+            shift 2
+            ;;
+
+        "-e" | "--env")
+            extra_filter+=' | select(.environment.from_metadata // "" | match("'$2'") | values)'
+            shift 2
+            ;;
+
+        "-r" | "--raw")
+            raw="yes"
+            shift
+            ;;
+
+        "-v" | "--verbose")
+            verbose="yes"
+            shift
+            ;;
+
+        *)
+            _help "Parâmetro desconhecido: \"$1\"" 1
+            ;;
+    esac
+done
+
+[ -z "$environment" ] && _help "Ambiente não especificado" 1
+
+filter='[
+    .items[] | {
+        "project": {
+            "from_annotation": .spec.template.metadata.annotations."devops.k8s.io/project-name",
+            "from_metadata": .metadata.labels.app,
+        },
+        "version": .spec.template.metadata.annotations."devops.k8s.io/version",
+        "environment": {
+            "from_annotation": .spec.template.metadata.annotations."app.kubernetes.io/environment",
+            "from_metadata": .metadata.labels."app.kubernetes.io/environment",
+        },
+        "namespace": .metadata.namespace,
+        "created": .metadata.creationTimestamp,
+        "updated": .metadata.managedFields[-1].time,
+        "replicas": {
+            "specified": .spec.replicas,
+            "ready": .status.readyReplicas,
+        },
+        "containers": [
+         .spec.template.spec.containers[] | {
+                "name": .name,
+                "image": .image,
+            }
+        ],
+    }'"$extra_filter"']'
+
+[ "$raw" == "yes" ] && filter='.'
+
+case "$environment" in
+    "sit" | "hlg" | "stg" | "stress")
+      base_host="http://get-versions-viamais-hlg.apps.ops-eqx-hlg.via.com.br"
+      token='Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InVHd21JOXpPRUhKZmxaTXVhWUd3a1MwWnp5c0RYOHNfbEUxT29mdmM0cEUifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ2aWFtYWlzLXNpdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJnZXR2ZXJzaW9ucy10b2tlbi1obHdoZyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJnZXR2ZXJzaW9ucyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjdkN2FjMmY4LTgxM2QtNDZjZi05NmUzLWFhNzNmODMwMTBjZiIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDp2aWFtYWlzLXNpdDpnZXR2ZXJzaW9ucyJ9.fUcqsjpsVYjX_e5P_eyB36aNOFae7AwFHom0-JvlXfGL_uMiXlEAfsxRqjBNYCnY0yUvTNO-EGg_VyQ_6D5AQWxHD0TBQbV95RKQRaIHZ7ztOb0ULad6GpXdvI3HHQy86zUk06u52O3zp0beikK8DgBqdo1yF8W4EVLcqtTUjZ5Gr6Jx-tAeZyuX_lLFFIM7mpZvyLXyxLlGtaqVhuLwY1UIY9mHjesRxOcxbLBaWlSecrQo1M-uXK2MairCTlf28wpMqDKnCJhFPB4CdZeF2jO4X46zPIEpqAXdpZX2LLrfb-QrEd5ht_TACfP-7l_Kt9P20PVPJ9jhRHY_MGSJ-lWc9LGnJNpbHB9yXFQomUn-NDIOBr2DrYUWeM85NQ971Bywz2RiW937sRRxKkI7EK0KZjA13rT6NUR_YHNHcrDCWT1wcLXgql49H1cohttTpgCnBBuTJru2eRRjq2YgdRc_wa8rgFpSiyCpBquNlM6hUUrcBkxdl8uvGJf2V5ZxaQba6EtRqq3E5OUMJv7Z8i0pIQNGnXqhBX6X8cuAFs7eRlvGkr6TXnVqsYQw0n26hRrvQ1RB1y7aTOqy2wtG1RpueY2FOGxkFhcx_cE7tWdEXdNEX0l0Xx3v6UXE2JbWkukCq74-znY2bQuncGamDVKwP6TifscFJOZUZzKZ29o'
+      ;;
+
+    "pilot" | "prd")
+      base_host="http://get-versions-viamais-prd.apps.ops-eqx.viavarejo.com.br"
+      token='Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlNBdDByazVLYUEzWWx5OWpsdklkZUYxa3BTR09aZldZSk40aHVNeVVJZzAifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjIl0sImV4cCI6MjAzODEyNTY3MiwiaWF0IjoxNzIyNTQ5NjcyLCJpc3MiOiJodHRwczovL2t1YmVybmV0ZXMuZGVmYXVsdC5zdmMiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6InZpYW1haXMtcHJkIiwic2VydmljZWFjY291bnQiOnsibmFtZSI6ImdldC12ZXJzaW9ucyIsInVpZCI6ImUzMDFjNWRmLWJlZWQtNDkxZC05ZmFjLTZkNTk3MDYyMmI1YyJ9fSwibmJmIjoxNzIyNTQ5NjcyLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6dmlhbWFpcy1wcmQ6Z2V0LXZlcnNpb25zIn0.hPisNySV_5I5ywOJ2lKPvdS-elq96X3GU74B78hE60_zpiiYzM1jRoD7iFtxUaLrdI7vvHfbzyujmExTDnk2dPnHOQ6atIX_-gIt0zEsc1gCUScDpV1bzqgXfadO8v2lPgkwwuJPz9JOZKAOFdvys8gAIrgXqCKszbB0JVdKsq_9XpeHewG8GTcGkrVMBfgHNwMyoHgrtOPljFYu72ZS7RmUtFaZvpIvGcd1MKGyaiHpR9NDIRQjrWp7G_ptSZ_iDAJH3f3q_phHKww3iDJjqjO-hN0nVeqKyE5100DWG-tRfG2L0XECoHl_kh3ZktxYLJnMcrNOw8SvFAXG2cvzCJMYG7vA6owwIh2FF10OdzuNxeaWBVgOqeDYGk5wkgVfDcgTIx428yhrZ0ODTg7uVSA4lrEtcEZm2txeCx7VWq8ouZyefx8CGxKkaklKc_b2MSIObDo8F9DEJPuq79GuJIlRR1C7GLfMm5rQ3KoS5-bU_quHWBaQ3RoLfZlnmSUlgUhp3hJUgiYvT7OpWOZYpqgvwbRKKCdVHEhrBFqR8hNNQC3vjY97kFNKhu1Rt2Kxj5sF8h2qoDKRha6eT_zMu7n0VXkUm9WiBSHlriaf0RuwaqU4K4sVXEsbhbm0U6Cbd12wury4uThIJ7mynxknZTXY3tlGmdQOJpUcA6NKbDQ'
+      ;;
+esac
+
+host="$base_host/openshift/api/v1/namespaces/viamais-$environment/replicationcontrollers?fieldSelector=status.replicas!=0"
+
+[ "$verbose" == "yes" ] && {
+    echo "host: $host (environment: $environment)"
+    echo "token: $token"
+    echo "jq params: ${jq_params[@]}"
+    echo "jq filter: $filter"
+    echo
+} > /dev/stderr
+
+curl "$host" \
+    --silent \
+    --compressed \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0' \
+    -H 'Accept: application/json, text/plain, */*' \
+    -H 'Accept-Language: pt-BR,en-US;q=0.7,en;q=0.3' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H "Authorization: $token" \
+    -H 'DNT: 1' \
+    -H 'Sec-GPC: 1' \
+    -H 'Connection: keep-alive' \
+    -H 'Referer: http://get-versions-viamais-hlg.apps.ops-eqx-hlg.via.com.br/' \
+    -H 'Cookie: PIM-SESSION-ID=RIULZoy4jInHYwzi; 1300a3c1fbe2ca7031b67779b9377e2f=d8d77a5aff00b3d9c6b5ed792554f4e2' \
+| jq \
+    ${jq_params[@]} \
+    "$filter"

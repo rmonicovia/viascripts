@@ -1,0 +1,15 @@
+#!/bin/bash
+
+[[ "$1" =~ -?-h(elp)? ]] && {
+  cat << EOF
+Uso: $(basename $0) [ git log parameters ]
+
+Retorna uma lista única de todos os authores do repositório
+
+Obs: o comando pode demorar para executar, é recomendado usar "-n" para limitar a quantidade de commits listados
+EOF
+
+  exit 1
+}
+
+git log --format='%aN (%aE)' "$@" | sort -u

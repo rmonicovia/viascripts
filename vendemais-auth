@@ -1,0 +1,12 @@
+# vim: ft=bash
+
+_token_file=~/.config/jaiminho/token.data
+
+[[ "$1" =~ --?h(elp)? ]] && {
+  cat << EOF
+Mostra o token armazenado em "$_token_file"
+EOF
+  exit 0
+}
+
+echo "Authorization: bearer $(cat $_token_file)"

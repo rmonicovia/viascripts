@@ -1,0 +1,8 @@
+#!/usr/bin/bash
+
+cat << EOF
+gh repo list viavarejo-internal \
+--limit -1 \
+--json name,isArchived,description,url \
+--template '{{range .}}{{.name}};{{.isArchived}};"{{.description}}";"{{.url}}"{{"\n"}}{{end}}'
+EOF

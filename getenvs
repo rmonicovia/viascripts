@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+from argparse_decorations import RootCommand, Argument, parse_and_run
+import os
+import sys
+
+
+def getenvs(path):
+    kustomize_path = os.path.join(path, 'kustomize', 'overlays')
+
+    return [entry.name for entry in os.scandir(kustomize_path) if entry.is_dir()]
+
+
+@RootCommand()
+@Argument('project_paths', nargs='*', default=[os.getcwd()],
+          help='Project paths')
+def root(project_paths):
+    for raw_path in project_paths:
+        path = os.path.realpath(raw_path)
+
+        envs = getenvs(path)
+
+        print(' '.join(envs))
+
+
+if __name__ == '__main__':
+    sys.exit(parse_and_run())

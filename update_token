@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# vim: ft=bash
+
+[[ "$1" =~ --?h(elp)? ]] && {
+  cat << EOF
+Mostra o token armazenado em "$_token_file"
+
+Uso: $(basename $0) env
+
+Onde:
+env     É o ambiente para gerar o token (sit, qa, stg ou prd)
+EOF
+  exit 0
+}
+
+[ $# -ne 1 ] && {
+  echo "Ambiente não informado"
+  exit 1
+}
+
+env="$1"
+
+echo "Gerando token para $env...." > /dev/stderr
+
+jai request --environment $env token/generate > /dev/null
+
+_token_file=~/.config/jaiminho/token.data
+
+echo "token=(-H 'Authorization: bearer $(cat $_token_file)')"
